@@ -1,0 +1,582 @@
+---
+title: "WT:WP1:Paper 1"
+format:
+  html:
+    code-fold: true
+    code-summary: "Show the code"
+    code-link: true
+    embed-resources: true
+    page-layout: full
+    grid:
+      margin-width: 100px
+      body-width: 1000px
+author: Daniel Väisänen
+editor:
+  markdown: 
+    wrap: sentence
+toc: true
+execute: 
+  warning: false
+  echo: true
+  freeze: auto
+highlight-style: custom.theme
+theme:
+  light: github
+  dark: darkly
+---
+# Project description
+
+Paper 1 in work project 1 of the work together series
+
+#-------------------------
+## Libraries
+
+```{r}
+xfun::pkg_attach(
+  "tidyverse", 
+  "dtrackr", 
+  "glue", 
+  "DT", 
+  "flextable"
+  )
+
+```
+#-------------------------
+## Base theme
+
+```{r}
+theme_set(
+  theme_minimal(
+    base_size = 16,
+    base_family = "Roboto"
+  ) +
+    theme(
+      legend.position = "top",
+      panel.grid.major.y = element_line(),
+      panel.grid.minor.y = element_blank(),
+      panel.grid.major.x = element_line(),
+      panel.grid.minor.x = element_blank(),
+      axis.title.y = element_text(margin = margin(r = 10), colour = "grey30"),
+      axis.title.x = element_text(margin = margin(t = 10), colour = "grey30")
+    )
+)
+```
+
+#-------------------------
+## Data
+
+```{r}
+hpa <- read_csv(here::here("..", "..","..", "HPI (DNR XXXXXX)", "Data HPI registeruttag 2023", "HPI", "HPI clean", "EEB_hpb_clean_2023-10-16.csv")) %>% 
+    mutate(SymptomBackNeck = if_else(SymptomBackNeck == 7 | SymptomBackNeck == 8, NA, SymptomBackNeck)) 
+
+scb <- read_csv(here::here("..", "..","..", "HPI (DNR XXXXXX)", "Data HPI registeruttag 2023", "SCB", "SCB clean", "Grunduppgifter_2023-09-24.csv")) %>% mutate(Kommun=str_replace(Kommun, "^0+", ""))# remove leading zeros
+
+# join SCB and HPI data
+df <- hpa %>% inner_join(scb, by = join_by(LopNr, Performed, Year))  %>% 
+    mutate(SSYK1_scb_hpi_combined = coalesce(SSYK1, Ssyk1_hpi_combined))
+
+```
+
+
+# Selection
+different n depending on different selection criterias
+```{r}
+
+# Assuming 'hpa' is your original data frame
+# Calculate base counts
+base_counts <- hpa %>% 
+  arrange(LopNr, Performed) %>% 
+  mutate(hpa_number = row_number(), .by = LopNr) %>% 
+  count(hpa_number) %>% 
+  slice_head(n = 10) %>%
+  rename(base_count = n)
+
+# Calculate counts for different conditions
+hpa_counts <- hpa %>% 
+  arrange(LopNr, Performed) %>% 
+  mutate(hpa_number = row_number(), .by = LopNr)
+
+# Function to filter and count based on minimum number of non-NA values
+count_non_na <- function(data, phys_min, quest_min) {
+  data %>% 
+    filter(
+      rowSums(!is.na(select(., starts_with("EkB_rel_VO2"), starts_with("Astrand_rel_VO2"), 
+                             starts_with("HeightCM"), starts_with("WeightKG"), 
+                             starts_with("BloodPressureSystolic"), starts_with("BloodPressureDiastolic")))) >= phys_min,
+      rowSums(!is.na(select(., starts_with("ExerciseAnswer"), starts_with("TobaccoSmoking"), 
+                             starts_with("Diet"), starts_with("Health"), 
+                             starts_with("StressOverall"), starts_with("SymptomBackNeck")))) >= quest_min,
+      Year > 1994
+    ) %>% 
+    count(hpa_number) %>% 
+    slice_head(n = 10) %>%
+    # Create a column with a dynamic name based on phys_min and quest_min
+    mutate("{paste0('n', phys_min, '_', quest_min)}" := n) %>%
+    select(-c(hpa_number, n))
+}
+
+# Apply the function with different minimum values
+counts_1_1 <- count_non_na(hpa_counts, 1, 1) 
+counts_1_2 <- count_non_na(hpa_counts, 1, 2)
+counts_2_1 <- count_non_na(hpa_counts, 2, 1)
+counts_2_2 <- count_non_na(hpa_counts, 2, 2)
+counts_3_2 <- count_non_na(hpa_counts, 3, 2)
+counts_2_3 <- count_non_na(hpa_counts, 2, 3)
+counts_3_3 <- count_non_na(hpa_counts, 3, 3)
+
+# Join all counts together
+sums <- bind_cols(base_counts, counts_1_1, counts_1_2, counts_2_1, counts_2_2, counts_3_2, counts_2_3, counts_3_3) 
+  
+
+sums %>%
+  mutate(
+    diff_1_1 = base_count - n1_1,
+    ande_1_1 = (diff_1_1 / base_count) * 100,
+    diff_1_2 = base_count - n1_2,
+    ande_1_2 = (diff_1_2 / base_count) * 100,
+    diff_2_1 = base_count - n2_1,
+    ande_2_1 = (diff_2_1 / base_count) * 100,
+    diff_2_2 = base_count - n2_2,
+    ande_2_2 = (diff_2_2 / base_count) * 100,
+    diff_3_2 = base_count - n3_2,
+    ande_3_2 = (diff_3_2 / base_count) * 100,
+    diff_2_3 = base_count - n2_3,
+    ande_2_3 = (diff_2_3 / base_count) * 100,
+    diff_3_3 = base_count - n3_3,
+    ande_3_3 = (diff_3_3 / base_count) * 100
+  ) %>% select(-starts_with("n")) %>% 
+  mutate(across(everything(), round(1))) %>% 
+  flextable::flextable()
+
+
+
+
+```
+
+# Variable creations
+
+```{r}
+# data from tillväxtverket, another possibility could be skr
+metropolitan_municipalities <- c("114", "123", "126", "127", "128", "136", "138", "139", "160", 
+                                 "162", "163", "180", "181", "182", "183", "184", "186", "191", 
+                                 "1230", "1231", "1262", "1280", "1281", "1402", "1480", "1481")
+
+dense_municipalities <- c("115", "117", "120", "140", "187", "305", "330", "380", "381", "461", 
+                          "480", "481", "483", "484", "486", "561", "562", "580", "581", "583", 
+                          "584", "642", "643", "680", "682", "683", "686", "687", "760", "765", 
+                          "780", "781", "880", "881", "882", "883", "884", "1060", "1080", "1082", 
+                          "1233", "1261", "1263", "1272", "1275", "1282", "1277", "1282", "1283", 
+                          "1285", "1286", "1287", "1290", "1292", "1380", 
+                          "1382", "1401", "1407", "1440", "1441", "1472", "1482", "1484", "1485", 
+                          "1486", "1487", "1488", "1489", "1490", "1492", "1493", "1494", "1495", 
+                          "1496", "1497", "1498", "1499", "1715", "1761", "1780", "1781", "1782", 
+                          "1784", "1785", "1862", "1880", "1881", "1883", "1884", "1907", "1960", 
+                          "1961", "1980", "1981", "1982", "1983", "1984", "2062", "2080", "2081", 
+                          "2085", "2104", "2180", "2181", "2262", "2280", "2281", "2380", "2523", "2580", "2581", 
+                          "2582", "2583", "2584")
+
+rural_municipalities <- c("125", "128", "188", "192", "319", "331", "360", "382", "428", "482", "488", "509", 
+                          "512", "513", "560", "563", "580", "582", "586", "604", "617", "662", "665", 
+                          "684", "685", "761", "763", "764", "767", "821", "834", "840", "860", "861", "862", "885", 
+                          "980", "1081", "1083", "1214", "1256", "1257", "1260", "1264", "1265", 
+                          "1266", "1267", "1270", "1273", "1276", "1278", "1284", "1291", "1293", "1315", 
+                          "1381", "1383", "1384", "1415", "1419", "1421", "1427", "1430", "1435", 
+                          "1438", "1439", "1442", "1443", "1444", "1445", "1446", "1447", "1452", 
+                          "1460", "1461", "1462", "1463", "1465", "1466", "1491", "1470", "1471", "1473", 
+                          "1730", "1737", "1760", "1762", "1763", "1764", "1765", "1766", "1783", "1814", 
+                          "1860", "1861", "1863", "1864", "1882", "1885", "1904", "1962", "2021", 
+                          "2023", "2026", "2029", "2031", 
+                          "2034", "2039", "2061", "2082", "2083", "2084", "2101", "2121", "2132", 
+                          "2161", "2182", "2183", "2184", "2260", "2282", "2283", "2284", "2303", 
+                          "2305", "2309", "2313", "2321", "2326", "2361", "2401", "2403", "2404", 
+                          "2409", "2417", "2418", "2421", "2422", "2425", "2460", "2462", "2463", 
+                          "2480", "2481", "2482", "2505", "2506", "2510", "2513", "2514", "2518", 
+                          "2521", "2560")
+
+
+
+
+
+
+df1 <- df1 %>% 
+   mutate(Kommun=str_replace(Kommun, "^0+", "")) %>% 
+  # Convert Year to date and create 5-year periods
+  mutate(Period = case_when(
+    Year >= 1995 & Year < 2000 ~ "1995-1999",
+    Year >= 2000 & Year < 2005 ~ "2000-2004",
+    Year >= 2005 & Year < 2010 ~ "2005-2009",
+    Year >= 2010 & Year < 2015 ~ "2010-2014",
+    Year >= 2015 & Year < 2020 ~ "2015-2019",
+    Year >= 2020 & Year <= 2023 ~ "2020-2023",
+    TRUE ~ NA_character_  # For years outside the specified range
+  )) %>%
+  # Create age groups
+  mutate(AgeGroup = case_when(
+    Age >= 18 & Age <= 35 ~ "18-35",
+    Age > 35 & Age <= 50 ~ "36-50",
+    Age > 50 & Age <= 65 ~ "51-65",
+    TRUE ~ ">65"
+  )) %>%
+  # Categorize Civil status
+  mutate(Single = if_else(Civil == "S", 1, 0)) %>%
+  # Categorize Birth country
+  mutate(BirthPlace = case_when(
+    FodelseLandEU28 == "Sverige" ~ "Sweden",
+    FodelseLandEU28 %in% c("EU utom Norden", "Europa utom EU och Norden", "Norden utom Sverige") ~ "In Europe",
+    TRUE ~ "Outside Europe"
+  )) %>%
+  # Categorize Kommun based on hypothetical population size categories
+  mutate(KommunSize = case_when(
+    Kommun %in% metropolitan_municipalities ~ "metropolitan_municipalities",
+    Kommun %in% dense_municipalities ~ "dense_municipalities",
+    Kommun %in% rural_municipalities ~ "rural_municipalities",
+    TRUE ~ "Other"
+  )) %>%
+  # Divide income into quartiles
+  mutate(IncomeQuartile = ntile(CSFVI, 4), .by = Period) %>%
+  # Categorize education level
+  mutate(EducationLevel = case_when(
+    SUN2000Niva_Old %in% 1:2 ~ "Basic education",
+    SUN2000Niva_Old %in% 3:5 ~ "Secondary to Post-Secondary Education",
+    SUN2000Niva_Old %in% 6:7 ~ "Higher Education",
+    TRUE ~ "Unknown"
+  ),
+  # combine occupation
+  SSYK1_scb_hpi_combined = coalesce(SSYK1, Ssyk1_hpi_combined),
+  # Categorize occupation
+    SSYK_WB = case_when(SSYK1_scb_hpi_combined <= 4 ~ "White-Collar",
+                             SSYK1_scb_hpi_combined > 4 ~ "Blue-Collar")
+  )
+
+```
+
+# Flowchart and data in/ex-clusion
+
+```{r}
+
+# global options for dtrackr
+
+old = options(
+ #dtrackr.strata_glue="{.group}:{.value}",
+  #dtrackr.strata_sep="; ",
+  dtrackr.strata_glue="{tolower(.value)}",
+  dtrackr.strata_sep=", ",
+  dtrackr.default_message = "n={formatC(.count, big.mark = ',',format = 'fg')}"
+  #dtrackr.default_headline = "subgroup: {.strata}"
+)
+# reset options 
+#options(old)
+
+df1 <-
+df |> 
+  track(.headline = "Flow chart     ",
+        .messages="Data SCB variables in HPI data"
+  ) %>%
+  status(.messages = "n={formatC(.count, big.mark = ',')}") %>%  
+  filter(rowSums(!is.na(select(., EkB_rel_VO2, Astrand_rel_VO2, HeightCM, WeightKG, BloodPressureSystolic, BloodPressureDiastolic))) >= 2,
+         rowSums(!is.na(select(., ExerciseAnswer, TobaccoSmoking, Diet, Health, StressOverall, SymptomBackNeck))) >= 2, 
+         .messages = "Excluded {formatC(.excluded, big.mark = ',',format = 'fg')}", .headline = "questionnaire 2 physilogical 2" ) %>% 
+   status(.messages = "n={formatC(.count, big.mark = ',')}") %>% 
+  exclude_all(
+    Year < 1995 ~ "{formatC(.excluded, big.mark = ',',format = 'fg')} Year < 1995",
+    CSFVI == 0 ~ "{formatC(.excluded, big.mark = ',',format = 'fg')} with income 0kr",
+   # Age > 65 ~  "{formatC(.excluded, big.mark = ',',format = 'fg')} with age > 65" ,
+    is.na(SSYK1_scb_hpi_combined) ~  "{formatC(.excluded, big.mark = ',',format = 'fg')} with NA in SSYK" ,
+    is.na(Civil) ~  "{formatC(.excluded, big.mark = ',',format = 'fg')} with NA in Civil",
+    FodelseLandEU28=="Okänt" ~  "{formatC(.excluded, big.mark = ',',format = 'fg')} with 'Okänt'in fodelselandEU28",
+   # SUN2000Niva_Old=="*" ~  "{formatC(.excluded, big.mark = ',',format = 'fg')} with NA in education (*)"
+  ) %>% 
+  status(.messages = "n={formatC(.count, big.mark = ',')}") %>% 
+      arrange(LopNr, Performed) %>% 
+  mutate(hpa_number = row_number(), 
+         test_count = n(), .by = LopNr) %>% 
+  filter(hpa_number == 1,
+         .messages = "Excluded {formatC(.excluded, big.mark = ',',format = 'fg')}", .headline = "Repeated tests") %>% 
+ # status() %>% 
+  group_by(test_count>1,) %>% 
+  comment(" has {formatC(.count, big.mark = ',')} items") %>%
+  ungroup(.headline = "Total study population\nn={formatC(.count, big.mark = ',')}",
+          .messages = "") 
+
+
+
+df1 %>% flowchart()
+
+
+#df1 |> 
+ # flowchart(filename="testtype",
+  #          formats = c("png","svg", "pdf"),
+   #                      maxWidth=20, 
+    #                    maxHeight = 20)
+
+
+
+```
+
+#-------------------------
+# Descriptive tables
+
+## -Table 1 Lifestyle charasteristics
+ 
+```{r}
+
+
+# Create summarized table
+summary_table <- df2 %>%
+
+  group_by(Period) %>%
+  summarise(
+    n = n(),
+    Men = mean(Sex == "Men") * 100,
+    Age18_35 = mean(AgeGroup == "18-35") * 100,
+    Age36_50 = mean(AgeGroup == "36-50") * 100,
+    Age51_65 = mean(AgeGroup == "51-65") * 100,
+    AgeOLD = mean(AgeGroup == ">65") * 100,
+    Married = mean(Married, na.rm = TRUE) * 100,
+    BirthPlaceSweden = mean(BirthPlace == "Sweden") * 100,
+    BirthPlaceInEurope = mean(BirthPlace == "In Europe") * 100,
+    BirthPlaceOutsideEurope = mean(BirthPlace == "Outside Europe") * 100,
+    White_collar = mean(SSYK_WB == "White-Collar") * 100,
+    Blue_collar = mean(SSYK_WB == "Blue-Collar") * 100,
+    metropolitan_municipalities = mean(KommunSize == "metropolitan_municipalities") * 100,
+    dense_municipalities = mean(KommunSize == "dense_municipalities") * 100,
+    rural_municipalities = mean(KommunSize == "rural_municipalities") * 100,
+    # MedianIncome = median(CSFVI),
+    MedianIncomeQ1 = median(CSFVI[IncomeQuartile == 1], na.rm = TRUE),
+    MedianIncomeQ2 = median(CSFVI[IncomeQuartile == 2], na.rm = TRUE),
+    MedianIncomeQ3 = median(CSFVI[IncomeQuartile == 3], na.rm = TRUE),
+    MedianIncomeQ4 = median(CSFVI[IncomeQuartile == 4], na.rm = TRUE),
+    EducationLow = mean(EducationLevel == "Basic education") * 100,
+    EducationMedium = mean(EducationLevel == "Secondary to Post-Secondary Education") * 100,
+    EducationHigh = mean(EducationLevel == "Higher Education") * 100,
+    BloodPressureSystolicMean = mean(BloodPressureSystolic, na.rm = TRUE),
+    BloodPressureDiastolicMean = mean(BloodPressureDiastolic, na.rm = TRUE),
+    BMI = mean(BMI, na.rm = TRUE),
+    EkB_rel_VO2 = mean(EkB_rel_VO2, na.rm = TRUE),
+    Astrand_rel_VO2 = mean(Astrand_rel_VO2, na.rm = TRUE),
+    Smokers = mean(TobaccoSmoking < 2) * 100
+  ) %>% 
+  mutate(across(where(is.numeric), round, 2))
+
+
+
+ summary_table_transposed <- 
+   summary_table %>%
+  pivot_longer(
+    -Period, 
+    names_to = "Attribute", 
+    values_to = "Value"
+  ) %>%
+  pivot_wider(
+    names_from = Period, 
+    values_from = Value,
+    names_prefix = "Period_"
+   ) 
+  
+ # %>% 
+  #  mutate(across(where(is.numeric), round,1)) %>% 
+  #  flextable::flextable() 
+
+
+# Skapa en DataTable från den sammanfogade datan
+datatable(
+  summary_table_transposed,
+  extensions = 'Buttons',
+  options = list(
+    scrollX = TRUE,
+    pageLength = 25,
+    dom = 'Bfrtip',
+    buttons = c('copy', 'csv', 'excel'),
+    title = "Sammanställd Frekvens av ICD-koder"
+  )
+)
+
+
+
+```
+
+## -Table 2  - Sociodemographics
+
+```{r}
+
+# Create summarized table
+summary_table <- t_wide %>%
+  group_by(Period) %>%
+  summarise(
+    n = n(),
+    Men = mean(Sex == "Men") * 100,
+    Age18_35 = mean(AgeGroup == "18-35") * 100,
+    Age36_50 = mean(AgeGroup == "36-50") * 100,
+    Age51_65 = mean(AgeGroup == "51-65") * 100,
+    AgeOLD = mean(AgeGroup == ">65") * 100,
+    Single = mean(Single, na.rm = TRUE) * 100,
+    BirthPlaceSweden = mean(BirthPlace == "Sweden") * 100,
+    BirthPlaceInEurope = mean(BirthPlace == "In Europe") * 100,
+    BirthPlaceOutsideEurope = mean(BirthPlace == "Outside Europe") * 100,
+    metropolitan_municipalities = mean(KommunSize == "metropolitan_municipalities") * 100,
+    dense_municipalities = mean(KommunSize == "dense_municipalities") * 100,
+    rural_municipalities = mean(KommunSize == "rural_municipalities") * 100,
+   # MedianIncome = median(CSFVI),
+MedianIncomeQ1 = median(CSFVI[IncomeQuartile == 1], na.rm = TRUE),
+MedianIncomeQ2 = median(CSFVI[IncomeQuartile == 2], na.rm = TRUE),
+MedianIncomeQ3 = median(CSFVI[IncomeQuartile == 3], na.rm = TRUE),
+MedianIncomeQ4 = median(CSFVI[IncomeQuartile == 4], na.rm = TRUE),
+    EducationLow = mean(EducationLevel == "Low") * 100,
+    EducationMedium = mean(EducationLevel == "Medium") * 100,
+    EducationHigh = mean(EducationLevel == "High") * 100
+  )
+
+
+
+ summary_table_transposed <- 
+   summary_table %>%
+  pivot_longer(
+    -Period, 
+    names_to = "Attribute", 
+    values_to = "Value"
+  ) %>%
+  pivot_wider(
+    names_from = Period, 
+    values_from = Value,
+    names_prefix = "Period_"
+  ) %>% 
+   mutate(across(where(is.numeric), round,1)) %>% 
+   flextable::flextable() 
+
+ 
+ 
+```
+
+
+## -Table 3 worklife charasteristics
+
+```{r}
+
+# Create summarized table
+summary_table <- df2 %>%
+
+  group_by(Period) %>%
+  summarise(
+    n = n(),
+    Men = mean(Sex == "Men") * 100,
+    Age18_35 = mean(AgeGroup == "18-35") * 100,
+    Age36_50 = mean(AgeGroup == "36-50") * 100,
+    Age51_65 = mean(AgeGroup == "51-65") * 100,
+    AgeOLD = mean(AgeGroup == ">65") * 100,
+    Married = mean(Married, na.rm = TRUE) * 100,
+    BirthPlaceSweden = mean(BirthPlace == "Sweden") * 100,
+    BirthPlaceInEurope = mean(BirthPlace == "In Europe") * 100,
+    BirthPlaceOutsideEurope = mean(BirthPlace == "Outside Europe") * 100,
+    White_collar = mean(SSYK_WB == "White-Collar") * 100,
+    Blue_collar = mean(SSYK_WB == "Blue-Collar") * 100,
+    metropolitan_municipalities = mean(KommunSize == "metropolitan_municipalities") * 100,
+    dense_municipalities = mean(KommunSize == "dense_municipalities") * 100,
+    rural_municipalities = mean(KommunSize == "rural_municipalities") * 100,
+    # MedianIncome = median(CSFVI),
+    MedianIncomeQ1 = median(CSFVI[IncomeQuartile == 1], na.rm = TRUE),
+    MedianIncomeQ2 = median(CSFVI[IncomeQuartile == 2], na.rm = TRUE),
+    MedianIncomeQ3 = median(CSFVI[IncomeQuartile == 3], na.rm = TRUE),
+    MedianIncomeQ4 = median(CSFVI[IncomeQuartile == 4], na.rm = TRUE),
+    EducationLow = mean(EducationLevel == "Basic education") * 100,
+    EducationMedium = mean(EducationLevel == "Secondary to Post-Secondary Education") * 100,
+    EducationHigh = mean(EducationLevel == "Higher Education") * 100,
+    BloodPressureSystolicMean = mean(BloodPressureSystolic, na.rm = TRUE),
+    BloodPressureDiastolicMean = mean(BloodPressureDiastolic, na.rm = TRUE),
+    BMI = mean(BMI, na.rm = TRUE),
+    EkB_rel_VO2 = mean(EkB_rel_VO2, na.rm = TRUE),
+    Astrand_rel_VO2 = mean(Astrand_rel_VO2, na.rm = TRUE),
+    Smokers = mean(TobaccoSmoking < 2) * 100
+  ) %>% 
+  mutate(across(where(is.numeric), round, 2))
+
+
+
+ summary_table_transposed <- 
+   summary_table %>%
+  pivot_longer(
+    -Period, 
+    names_to = "Attribute", 
+    values_to = "Value"
+  ) %>%
+  pivot_wider(
+    names_from = Period, 
+    values_from = Value,
+    names_prefix = "Period_"
+   ) 
+  
+ # %>% 
+  #  mutate(across(where(is.numeric), round,1)) %>% 
+  #  flextable::flextable() 
+
+
+# Skapa en DataTable från den sammanfogade datan
+datatable(
+  summary_table_transposed,
+  extensions = 'Buttons',
+  options = list(
+    scrollX = TRUE,
+    pageLength = 25,
+    dom = 'Bfrtip',
+    buttons = c('copy', 'csv', 'excel'),
+    title = "Sammanställd Frekvens av ICD-koder"
+  )
+)
+
+```
+
+
+
+
+#-------------------------
+# HPI vs SCB data
+
+## -Table xx
+
+## -Figure xx
+
+
+#-------------------------
+# 30 most underrepresented/overrepresented groups
+
+```{r}
+
+```
+
+
+## -Figure xx
+```{r}
+
+```
+
+#-------------------------
+# other stuff
+
+## Income graph
+```{r}
+
+df1 %>%
+  mutate(Period = case_when(
+    Year >= 1995 & Year < 2000 ~ "1995-1999",
+    Year >= 2000 & Year < 2005 ~ "2000-2004",
+    Year >= 2005 & Year < 2010 ~ "2005-2009",
+    Year >= 2010 & Year < 2015 ~ "2010-2014",
+    Year >= 2015 & Year < 2020 ~ "2015-2019",
+    Year >= 2020 & Year <= 2023 ~ "2020-2023",
+    TRUE ~ NA_character_  # For years outside the specified range
+  )) %>%
+  ggplot(aes(x = Period, y = CSFVI)) + 
+  geom_violin() +
+  geom_boxplot(width = 0.2, 
+                 outlier.color = "red",
+  outlier.fill = "red",
+  outlier.shape = 19,
+  outlier.size = .3,
+  outlier.stroke = 0.5,
+  outlier.alpha = .8,
+  position = position_dodge() )+  # Still hide outliers in boxplot for clarity
+  #geom_jitter(color = "red", size = 1, width = 0.1, height = 0, aes(group = Period)) +  # Add jitter for outliers
+  scale_y_log10(labels = scales::label_number(), breaks = scales::log_breaks(n = 20)) +  # More breaks on the y-axis
+  theme_minimal() +
+  labs(y = "CSFVI (log scale)", x = "Period")
+
+```
