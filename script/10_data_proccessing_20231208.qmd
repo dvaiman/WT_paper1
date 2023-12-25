@@ -154,7 +154,37 @@ sums %>%
 ```
 
 # Variable creations
+* Uppgift saknas
+1 Förgymnasial utbildning kortare än 9 år
+2 Förgymnasial utbildning 9 år
+3 Gymnasial utbildning högst 2-årig
+4 Gymnasial utbildning 3 år
+5 Eftergymnasial utbildning kortare än 3 år
+6 Eftergymnasial utbildning 3 år eller längre (exkl. forskarutbildning)
+7 Forskarutbildning 
 
+
+High-Skilled Group:
+
+Managers and Administrators
+Professionals (e.g., healthcare, education, IT)
+Technicians and Associate Professionals
+This group encompasses roles that typically require advanced education, specialized skills, and a high level of expertise.
+Skilled Manual (Blue Collar) Group:
+
+Skilled Agricultural, Forestry, and Fishery Workers
+Craft and Related Trades Workers
+Plant and Machine Operators, and Assemblers
+Jobs in this group generally require specific vocational skills or training, often involving manual labor or technical expertise.
+Clerical and Service Workers Group:
+
+Clerical Support Workers
+Service and Sales Workers
+This group covers roles primarily in the service sector, including both office-based clerical jobs and customer-facing service roles. These occupations may require certain levels of training and skills, but not to the extent of the high-skilled group.
+Elementary Occupations Group:
+
+Elementary Occupations
+This group includes occupations that usually perform simple and routine tasks, which may require the use of hand-held tools and physical effort. These roles often do not require formal educational credentials or specialized training.
 ```{r}
 # data from tillväxtverket, another possibility could be skr
 metropolitan_municipalities <- c("114", "123", "126", "127", "128", "136", "138", "139", "160", 
@@ -198,7 +228,7 @@ rural_municipalities <- c("125", "128", "188", "192", "319", "331", "360", "382"
 
 
 
-df1 <- df1 %>% 
+df1 <- df %>% 
    mutate(Kommun=str_replace(Kommun, "^0+", "")) %>% 
   # Convert Year to date and create 5-year periods
   mutate(Period = case_when(
@@ -218,7 +248,11 @@ df1 <- df1 %>%
     TRUE ~ ">65"
   )) %>%
   # Categorize Civil status
-  mutate(Single = if_else(Civil == "S", 1, 0)) %>%
+    mutate(MarriedOrPartner = case_when(
+    Civil %in% c("G", "RP") ~ 1,  # Gift or Registrerad Partner
+    Civil %in% c("OG", "S", "Ä", "SP", "EP") ~ 0,  # Other categories (you can specify these)
+    TRUE ~ NA_integer_  # Assign NA to cases that do not match any condition
+  )) %>% 
   # Categorize Birth country
   mutate(BirthPlace = case_when(
     FodelseLandEU28 == "Sverige" ~ "Sweden",
@@ -232,22 +266,40 @@ df1 <- df1 %>%
     Kommun %in% rural_municipalities ~ "rural_municipalities",
     TRUE ~ "Other"
   )) %>%
-  # Divide income into quartiles
-  mutate(IncomeQuartile = ntile(CSFVI, 4), .by = Period) %>%
+
   # Categorize education level
   mutate(EducationLevel = case_when(
-    SUN2000Niva_Old %in% 1:2 ~ "Basic education",
-    SUN2000Niva_Old %in% 3:5 ~ "Secondary to Post-Secondary Education",
+    SUN2000Niva_Old %in% 1:2 ~ "Primary",
+    SUN2000Niva_Old %in% 3:4 ~ "Secondary",
+    SUN2000Niva_Old %in% 5 ~ "Tertiary <2 years",
     SUN2000Niva_Old %in% 6:7 ~ "Higher Education",
     TRUE ~ "Unknown"
-  ),
+  )) %>% 
+    # Divide income into quartiles
+  mutate(IncomeQuartile = ntile(CSFVI, 4), 
+         .by = Period) %>%
+   mutate(IncomeLevel = case_when(
+    CSFVI >= 2 * median(CSFVI) ~ "≥200%",
+    CSFVI >= 1.2 * median(CSFVI) & CSFVI < 2 * median(CSFVI) ~ "120–199%",
+    CSFVI >= 0.8 * median(CSFVI) & CSFVI < 1.2 * median(CSFVI) ~ "80–119%",
+    CSFVI >= 0.6 * median(CSFVI) & CSFVI < 0.8 * median(CSFVI) ~ "60–79%",
+    TRUE ~ "<60%"
+  ), .by = Period) %>% 
   # combine occupation
+    mutate(
   SSYK1_scb_hpi_combined = coalesce(SSYK1, Ssyk1_hpi_combined),
   # Categorize occupation
     SSYK_WB = case_when(SSYK1_scb_hpi_combined <= 4 ~ "White-Collar",
-                             SSYK1_scb_hpi_combined > 4 ~ "Blue-Collar")
+                             SSYK1_scb_hpi_combined > 4 ~ "Blue-Collar"),
+SSYK_Category = case_when(
+    SSYK1_scb_hpi_combined %in% 1:3 ~ "High-Skilled",                        # High-skilled group
+    SSYK1_scb_hpi_combined %in% 4:5 ~ "Clerical and Service Workers",        # Clerical and service workers group
+    SSYK1_scb_hpi_combined %in% 6:8 ~ "Skilled Manual",        # Skilled manual or blue-collar group
+    SSYK1_scb_hpi_combined == 9 ~ "Elementary Occupations"                   # Elementary occupations group
+)
   )
 
+df1 %>% count(IncomeLevel)
 ```
 
 # Flowchart and data in/ex-clusion
@@ -267,8 +319,8 @@ old = options(
 # reset options 
 #options(old)
 
-df1 <-
-df |> 
+df2 <-
+df1 |> 
   track(.headline = "Flow chart     ",
         .messages="Data SCB variables in HPI data"
   ) %>%
@@ -326,35 +378,14 @@ summary_table <- df2 %>%
 
   group_by(Period) %>%
   summarise(
-    n = n(),
-    Men = mean(Sex == "Men") * 100,
-    Age18_35 = mean(AgeGroup == "18-35") * 100,
-    Age36_50 = mean(AgeGroup == "36-50") * 100,
-    Age51_65 = mean(AgeGroup == "51-65") * 100,
-    AgeOLD = mean(AgeGroup == ">65") * 100,
-    Married = mean(Married, na.rm = TRUE) * 100,
-    BirthPlaceSweden = mean(BirthPlace == "Sweden") * 100,
-    BirthPlaceInEurope = mean(BirthPlace == "In Europe") * 100,
-    BirthPlaceOutsideEurope = mean(BirthPlace == "Outside Europe") * 100,
-    White_collar = mean(SSYK_WB == "White-Collar") * 100,
-    Blue_collar = mean(SSYK_WB == "Blue-Collar") * 100,
-    metropolitan_municipalities = mean(KommunSize == "metropolitan_municipalities") * 100,
-    dense_municipalities = mean(KommunSize == "dense_municipalities") * 100,
-    rural_municipalities = mean(KommunSize == "rural_municipalities") * 100,
-    # MedianIncome = median(CSFVI),
-    MedianIncomeQ1 = median(CSFVI[IncomeQuartile == 1], na.rm = TRUE),
-    MedianIncomeQ2 = median(CSFVI[IncomeQuartile == 2], na.rm = TRUE),
-    MedianIncomeQ3 = median(CSFVI[IncomeQuartile == 3], na.rm = TRUE),
-    MedianIncomeQ4 = median(CSFVI[IncomeQuartile == 4], na.rm = TRUE),
-    EducationLow = mean(EducationLevel == "Basic education") * 100,
-    EducationMedium = mean(EducationLevel == "Secondary to Post-Secondary Education") * 100,
-    EducationHigh = mean(EducationLevel == "Higher Education") * 100,
+    HeightCM = mean(HeightCM, na.rm = TRUE),
+    WeightKG = mean(WeightKG, na.rm = TRUE),
+   BMI = mean(BMI, na.rm = TRUE),
     BloodPressureSystolicMean = mean(BloodPressureSystolic, na.rm = TRUE),
     BloodPressureDiastolicMean = mean(BloodPressureDiastolic, na.rm = TRUE),
-    BMI = mean(BMI, na.rm = TRUE),
     EkB_rel_VO2 = mean(EkB_rel_VO2, na.rm = TRUE),
     Astrand_rel_VO2 = mean(Astrand_rel_VO2, na.rm = TRUE),
-    Smokers = mean(TobaccoSmoking < 2) * 100
+    Smokers = mean(TobaccoSmoking < 2, na.rm = TRUE) * 100
   ) %>% 
   mutate(across(where(is.numeric), round, 2))
 
@@ -396,34 +427,63 @@ datatable(
 ```
 
 ## -Table 2  - Sociodemographics
+N och % i var grupp
 
+
+Income level (% of median) 
+≥200 
+120–199 
+80–119 
+60–79 
+<60 
+
+    mutate(IncomeLevel = case_when(
+    CSFVI >= 2 * median(CSFVI) ~ "≥200%",
+    CSFVI >= 1.2 * median(CSFVI) & CSFVI < 2 * median(CSFVI) ~ "120–199%",
+    CSFVI >= 0.8 * median(CSFVI) & CSFVI < 1.2 * median(CSFVI) ~ "80–119%",
+    CSFVI >= 0.6 * median(CSFVI) & CSFVI < 0.8 * median(CSFVI) ~ "60–79%",
+    TRUE ~ "<60%"
+  ), .by = Period),
+  
 ```{r}
 
 # Create summarized table
-summary_table <- t_wide %>%
+summary_table <- df2 %>%
   group_by(Period) %>%
   summarise(
-    n = n(),
+  n = n(),
     Men = mean(Sex == "Men") * 100,
     Age18_35 = mean(AgeGroup == "18-35") * 100,
     Age36_50 = mean(AgeGroup == "36-50") * 100,
     Age51_65 = mean(AgeGroup == "51-65") * 100,
     AgeOLD = mean(AgeGroup == ">65") * 100,
-    Single = mean(Single, na.rm = TRUE) * 100,
+    Married = mean(Married, na.rm = TRUE) * 100,
     BirthPlaceSweden = mean(BirthPlace == "Sweden") * 100,
     BirthPlaceInEurope = mean(BirthPlace == "In Europe") * 100,
     BirthPlaceOutsideEurope = mean(BirthPlace == "Outside Europe") * 100,
+    White_collar = mean(SSYK_WB == "White-Collar") * 100,
+    Blue_collar = mean(SSYK_WB == "Blue-Collar") * 100,
+    High_Skilled = mean(SSYK_Category == "High-Skilled") * 100,
+    Clerical_and_Service = mean(SSYK_Category == "Clerical and Service Workers") * 100,
+    Skilled_Manual = mean(SSYK_Category == "Skilled Manual") * 100,
+    Elementary_Occupations = mean(SSYK_Category == "Elementary Occupations") * 100,
     metropolitan_municipalities = mean(KommunSize == "metropolitan_municipalities") * 100,
     dense_municipalities = mean(KommunSize == "dense_municipalities") * 100,
     rural_municipalities = mean(KommunSize == "rural_municipalities") * 100,
-   # MedianIncome = median(CSFVI),
-MedianIncomeQ1 = median(CSFVI[IncomeQuartile == 1], na.rm = TRUE),
-MedianIncomeQ2 = median(CSFVI[IncomeQuartile == 2], na.rm = TRUE),
-MedianIncomeQ3 = median(CSFVI[IncomeQuartile == 3], na.rm = TRUE),
-MedianIncomeQ4 = median(CSFVI[IncomeQuartile == 4], na.rm = TRUE),
-    EducationLow = mean(EducationLevel == "Low") * 100,
-    EducationMedium = mean(EducationLevel == "Medium") * 100,
-    EducationHigh = mean(EducationLevel == "High") * 100
+    # MedianIncome = median(CSFVI),
+    MedianIncomeQ1 = median(CSFVI[IncomeQuartile == 1], na.rm = TRUE),
+    MedianIncomeQ2 = median(CSFVI[IncomeQuartile == 2], na.rm = TRUE),
+    MedianIncomeQ3 = median(CSFVI[IncomeQuartile == 3], na.rm = TRUE),
+    MedianIncomeQ4 = median(CSFVI[IncomeQuartile == 4], na.rm = TRUE),
+  Income_median = median(CSFI, na.rm = TRUE),
+  Income_200 = mean(IncomeLevel == "≥200%", na.rm = TRUE) * 100,
+    Income_120_199 = mean(IncomeLevel == "120–199%", na.rm = TRUE) * 100,
+    Income_80_119 = mean(IncomeLevel == "80–119%", na.rm = TRUE) * 100,
+    Income_60_79 = mean(IncomeLevel == "60–79%", na.rm = TRUE) * 100,
+    Income_below_60 = mean(IncomeLevel == "<60%", na.rm = TRUE) * 100,
+    EducationLow = mean(EducationLevel == "Basic education") * 100,
+    EducationMedium = mean(EducationLevel == "Secondary to Post-Secondary Education") * 100,
+    EducationHigh = mean(EducationLevel == "Higher Education") * 100,
   )
 
 
@@ -444,12 +504,77 @@ MedianIncomeQ4 = median(CSFVI[IncomeQuartile == 4], na.rm = TRUE),
    flextable::flextable() 
 
  
+
  
+ 
+ # summs
+df2 %>% count(Civil)
+
+
+ summary_table <- df2 %>%
+  group_by(Period) %>%
+  summarise(
+    n = formatC(n(), big.mark = ","),
+    Men = sprintf("%s (%.1f%%)", formatC(sum(Sex == "Men"), big.mark = ","), mean(Sex == "Men") * 100),
+    Age18_35 = sprintf("%s (%.1f%%)", formatC(sum(AgeGroup == "18-35"), big.mark = ","), mean(AgeGroup == "18-35") * 100),
+    Age36_50 = sprintf("%s (%.1f%%)", formatC(sum(AgeGroup == "36-50"), big.mark = ","), mean(AgeGroup == "36-50") * 100),
+    Age51_65 = sprintf("%s (%.1f%%)", formatC(sum(AgeGroup == "51-65"), big.mark = ","), mean(AgeGroup == "51-65") * 100),
+    AgeOLD = sprintf("%s (%.1f%%)", formatC(sum(AgeGroup == ">65"), big.mark = ","), mean(AgeGroup == ">65") * 100),
+    MarriedOrPartner = sprintf("%s (%.1f%%)", formatC(sum(MarriedOrPartner == 1), big.mark = ","), mean(MarriedOrPartner == 1) * 100),
+    BirthPlaceSweden = sprintf("%s (%.1f%%)", formatC(sum(BirthPlace == "Sweden"), big.mark = ","), mean(BirthPlace == "Sweden") * 100),
+    BirthPlaceInEurope = sprintf("%s (%.1f%%)", formatC(sum(BirthPlace == "In Europe"), big.mark = ","), mean(BirthPlace == "In Europe") * 100),
+    BirthPlaceOutsideEurope = sprintf("%s (%.1f%%)", formatC(sum(BirthPlace == "Outside Europe"), big.mark = ","), mean(BirthPlace == "Outside Europe") * 100),
+    White_collar = sprintf("%s (%.1f%%)", formatC(sum(SSYK_WB == "White-Collar"), big.mark = ","), mean(SSYK_WB == "White-Collar") * 100),
+    Blue_collar = sprintf("%s (%.1f%%)", formatC(sum(SSYK_WB == "Blue-Collar"), big.mark = ","), mean(SSYK_WB == "Blue-Collar") * 100),
+    High_Skilled = sprintf("%s (%.1f%%)", formatC(sum(SSYK_Category == "High-Skilled", na.rm = TRUE), big.mark = ","), mean(SSYK_Category == "High-Skilled", na.rm = TRUE) * 100),
+    Clerical_and_Service = sprintf("%s (%.1f%%)", formatC(sum(SSYK_Category == "Clerical and Service Workers", na.rm = TRUE), big.mark = ","), mean(SSYK_Category == "Clerical and Service Workers", na.rm = TRUE) * 100),
+    Skilled_Manual = sprintf("%s (%.1f%%)", formatC(sum(SSYK_Category == "Skilled Manual", na.rm = TRUE), big.mark = ","), mean(SSYK_Category == "Skilled Manual", na.rm = TRUE) * 100),
+    Elementary_Occupations = sprintf("%s (%.1f%%)", formatC(sum(SSYK_Category == "Elementary Occupations", na.rm = TRUE), big.mark = ","), mean(SSYK_Category == "Elementary Occupations", na.rm = TRUE) * 100),
+    metropolitan_municipalities = sprintf("%s (%.1f%%)", formatC(sum(KommunSize == "metropolitan_municipalities"), big.mark = ","), mean(KommunSize == "metropolitan_municipalities") * 100),
+    dense_municipalities = sprintf("%s (%.1f%%)", formatC(sum(KommunSize == "dense_municipalities"), big.mark = ","), mean(KommunSize == "dense_municipalities") * 100),
+    rural_municipalities = sprintf("%s (%.1f%%)", formatC(sum(KommunSize == "rural_municipalities"), big.mark = ","), mean(KommunSize == "rural_municipalities") * 100),
+    EducationPrimary = sprintf("%s (%.1f%%)", formatC(sum(EducationLevel == "Primary"), big.mark = ","), mean(EducationLevel == "Primary") * 100),
+    EducationSecondary = sprintf("%s (%.1f%%)", formatC(sum(EducationLevel == "Secondary"), big.mark = ","), mean(EducationLevel == "Secondary") * 100),
+    EducationTertiary = sprintf("%s (%.1f%%)", formatC(sum(EducationLevel == "Tertiary <2 years"), big.mark = ","), mean(EducationLevel == "Tertiary <2 years") * 100),
+    EducationHigher = sprintf("%s (%.1f%%)", formatC(sum(EducationLevel == "Higher Education"), big.mark = ","), mean(EducationLevel == "Higher Education") * 100),
+    IncomeLess60 = sprintf("%s (%.1f%%)", formatC(sum(IncomeLevel == "<60%"), big.mark = ","), mean(IncomeLevel == "<60%") * 100),
+    Income60_79 = sprintf("%s (%.1f%%)", formatC(sum(IncomeLevel == "60–79%"), big.mark = ","), mean(IncomeLevel == "60–79%") * 100),
+    Income80_119 = sprintf("%s (%.1f%%)", formatC(sum(IncomeLevel == "80–119%"), big.mark = ","), mean(IncomeLevel == "80–119%") * 100),
+    Income120_199 = sprintf("%s (%.1f%%)", formatC(sum(IncomeLevel == "120–199%"), big.mark = ","), mean(IncomeLevel == "120–199%") * 100),
+    Income200Plus = sprintf("%s (%.1f%%)", formatC(sum(IncomeLevel == "≥200%"), big.mark = ","), mean(IncomeLevel == "≥200%") * 100)
+  ) %>%
+  pivot_longer(
+    cols = -Period, 
+    names_to = "Attribute", 
+    values_to = "Value"
+  ) %>%
+  pivot_wider(
+    names_from = Period, 
+    values_from = Value,
+    names_prefix = "Period_"
+  ) %>% 
+  mutate(
+    Table_Category = case_when(
+      Attribute %in% c("Men", "Age18_35", "Age36_50", "Age51_65", "AgeOLD", "Married", "BirthPlaceSweden", "BirthPlaceInEurope", "BirthPlaceOutsideEurope", "EducationPrimary", "EducationSecondary", "EducationTertiary", "EducationHigher") ~ "Sociodemographic",
+      TRUE ~ "Worklife Characteristics"
+    )
+  ) %>%
+  flextable::flextable()
 ```
 
 
 ## -Table 3 worklife charasteristics
 
+
+Total
+Contractual relationship insecurity
+Directly employed by the employer (0)
+Employed by an agency (-1) Combination of self- and direct employment (-1) Self-employed (-1)
+Solo self-employed (-2)
+Contractual temporariness Stable employment (0) Unstable employment (-2)
+Multiple jobs/economic sectors
+CBA coverage (% likelihood)
+https://isf.se/publikationer/rapporter/2018/2018-09-04-vem-far-avsattningar-till-tjanstepension
 ```{r}
 
 # Create summarized table
@@ -549,7 +674,7 @@ datatable(
 ```
 
 #-------------------------
-# other stuff
+# other stuff not included in paper
 
 ## Income graph
 ```{r}
