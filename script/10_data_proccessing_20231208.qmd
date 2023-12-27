@@ -80,7 +80,7 @@ df <- hpa %>% inner_join(scb, by = join_by(LopNr, Performed, Year))  %>%
 
 # Selection
 different n depending on different selection criterias
-```{r}
+```{r, eval=FALSE}
 
 # Assuming 'hpa' is your original data frame
 # Calculate base counts
@@ -251,7 +251,7 @@ df1 <- df %>%
   # Categorize Civil status
     mutate(MarriedOrPartner = case_when(
     Civil %in% c("G", "RP") ~ "Partner",  # Married or Registrerad Partner
-    Civil %in% c("OG", "S", "Ä", "SP", "EP") ~ "NonPartnered",  # Other categories (you can specify these)
+    Civil %in% c("OG", "S", "Ä", "SP", "EP") ~ "Single",  # Other categories (you can specify these)
     TRUE ~ NA_character_  # Assign NA to cases that do not match any condition
   )) %>% 
   # Categorize Birth country
@@ -297,8 +297,29 @@ SSYK_Category = case_when(
     SSYK1_scb_hpi_combined %in% 4:5 ~ "Clerical and Service Workers",        # Clerical and service workers group
     SSYK1_scb_hpi_combined %in% 6:8 ~ "Skilled Manual",        # Skilled manual or blue-collar group
     SSYK1_scb_hpi_combined == 9 ~ "Elementary Occupations"                   # Elementary occupations group
-)
+)) %>% 
+  # factors
+   mutate(
+    EducationLevel =
+      factor(EducationLevel,
+             levels = c("Primary", "Secondary", "Tertiary <2 years", "Higher Education", "Unknown")),
+    KommunSize =
+      factor(KommunSize,
+             levels = c("rural_municipalities", "dense_municipalities", "metropolitan_municipalities", "Other")),
+    MarriedOrPartner =
+      factor(MarriedOrPartner,
+             levels = c("Partner", "Single")),
+    BirthPlace = 
+      factor(BirthPlace, 
+             levels = c("Sweden", "In Europe", "Outside Europe")),
+    IncomeLevel =
+      factor(IncomeLevel,
+             levels = c("<60%", "60–79%", "80–119%", "120–199%", "≥200%")),
+        SSYK_Category =
+      factor(SSYK_Category,
+             levels = c("High-Skilled", "Skilled Manual", "Clerical and Service Workers", "Elementary Occupations"))
   )
+  
 
 ```
 
@@ -352,7 +373,7 @@ df1 |>
 
 
 
-df1 %>% flowchart()
+df2 %>% flowchart()
 
 
 #df1 |> 
@@ -384,11 +405,11 @@ df1 %>% flowchart()
 ###################
 # FACTOR FUNCTION #
 ###################
-# df <- df
-# var <- "Age"
-# var <- "Sex"
-# group <- "Period"
-# val <- c(Age", "Sex")
+# df <- t2
+# var <- sym("Age")
+# var <- sym("EducationLevel")
+# group <- sym("Period")
+
 
 # d <- factor.fun(df, Contraception, ModifiedM4)
 # d <- factor.fun(df, BV_Diagnosis_v3, ModifiedM4) 
@@ -429,10 +450,10 @@ factor.fun <- function(df, var, group){
     mutate(percent = round(100*(n/sum))) %>%
     mutate( val = paste0(format(.$n, big.mark = ",")," (",.$percent,"%)")) %>% # !!as_label(var) :
     select(-sum, -n, -percent) %>%
-    pivot_wider(., names_from = !!group, values_from = val ) %>%
+    pivot_wider(., names_from = (!!group), values_from = val ) %>%
     dplyr::rename(Variables = as_label(var)) %>%
     arrange(Variables) %>%
-    mutate_at(vars(Variables), ~replace(., is.na(.), "Not available")) %>%
+    mutate_at(vars(Variables), ~replace(as.character(.), is.na(.), "Not available")) %>%
     mutate_at(vars(Variables), ~paste0("  - ", .)) %>%
     mutate_if(is.character, ~replace(., is.na(.), 0))
 
@@ -444,15 +465,12 @@ factor.fun <- function(df, var, group){
 }
 
 
-factor.fun(df=df2 %>% select(Astrand_rel_VO2, Age, Sex, Period), 
-           var = c("Sex"),
-           group = Period)
 
 #######################
 # CONTINUOUS FUNCTION #
 #######################
 # d_ <- continuous.fun(df, Age, Period)
-continuous.fun <- function(df, var, group, stat_type = "mean_ci"){
+continuous.fun <- function(df, var, group, stat_type){
   var <- enquo(var)
   group <- enquo(group)
   name_g <- as_label(group) 
@@ -464,7 +482,7 @@ continuous.fun <- function(df, var, group, stat_type = "mean_ci"){
     mutate_if(
     is.numeric,
     ~ ifelse(.x >= 1|.x==0, round(.x, digits = 1),
-            ifelse(.x<= 0.9 & .x >= 0.01, round(.x, digits = 2),
+            ifelse(.x >= 0.01 & .x<= 0.9, round(.x, digits = 1),
                                           formatC(.x, format = "e", digits = 1))))
   }
   
@@ -474,7 +492,7 @@ continuous.fun <- function(df, var, group, stat_type = "mean_ci"){
     se <- se
     ci_lower <- round(m - 1.96 * se, 2)
     ci_upper <- round(m + 1.96 * se, 2)
-    return(paste0(m, " (", ci_lower, "-", ci_upper, ")"))
+     return(sprintf("%.1f (%.1f-%.1f)", m, ci_lower, ci_upper)) # 1 decimal place rounding
   }
   # make factors
   if( is.null(levels(group)) ){df <- mutate( df, !!(name_g) := factor((!!group)) ) }
@@ -520,16 +538,18 @@ continuous.fun <- function(df, var, group, stat_type = "mean_ci"){
               .groups = "drop") %>% # d <- d_
     round.fun() %>%
     # mean(ci), median(icr) or median(range)
-    {if (stat_type == "mean_ci") 
-      mutate(.,!!as_label(var) := pmap_chr(., ~mean_confidence.fun(..3, ..4))) else .} %>%
-    {if (stat_type == "median_q1q3") 
-      mutate(.,!!as_label(var) := paste0(.$median," (",.$Q1,"-",.$Q3,")")) else .} %>%
-    {if (grepl("mean_ci|median_range|median_q1q3", stat_type)) 
-      mutate(.,!!as_label(var) := paste0(.$median," (",.$min,"-",.$max,")")) else
-      stop("Invalid stat_type. Choose 'mean_ci', 'median_q1q3' or 'median_range'.")} %>%
-    mutate(percent = round(100*(`  - Not available`/n))) %>%
-
-
+    mutate(percent = round(100 * (`  - Not available` / n))) %>%
+    mutate("  - Not available" = formatC(.$`  - Not available`, format="d", big.mark = ",")) %>%
+    {if ({{stat_type}} == "mean_ci") {
+      mutate(., {{ var }} := pmap_chr(., ~mean_confidence.fun(..3, ..4)))
+    } else .} %>%
+    {if ({{stat_type}} == "median_q1q3") {
+      mutate(., {{ var }} := paste0(median, " (", Q1, "-", Q3, ")"))
+    } else .} %>%
+    {if ({{stat_type}} == "median_range") {
+      mutate(., {{ var }} := paste0(median, " (", min, "-", max, ")"))
+    } else .} %>%
+    
     mutate("  - Not available" = paste0(.$`  - Not available`," (",.$percent,"%)")) %>%
     mutate_at(vars(`  - Not available`), str_replace_all, pattern = "^0 \\(0%\\)", replacement = "0") %>%
     select(!!group, !!as_label(var), `  - Not available`) %>%
@@ -552,7 +572,7 @@ continuous.fun <- function(df, var, group, stat_type = "mean_ci"){
 # gr_order <- c("NonIners", "Iners", "Gard", "Prev", "Oth")
 # d_ <- sum_table.fun(metadata, val, ModifiedM4, gr_order)
 # a <- sum_table.fun(meta_all, val, Contraception, gr_order)
-sum_table.fun <- function(df, val, group, gr_order) {
+sum_table.fun <- function(df, val, group, gr_order, stat_type ) {
   group <- enquo(group)
   
   # round decimals
@@ -575,10 +595,17 @@ sum_table.fun <- function(df, val, group, gr_order) {
   
   # count (n) in each group
   count <- table( pull(df, !!group) ) 
-  count_t <- count %>% paste0("**",names(.),"**","\\\n","n=(", ., ")") %>% set_names(., names(count))  
+  #count_t <- count %>% paste0("**",names(.),"**","\\\n","n=(", ., ")") %>% set_names(., names(count))  
+  count_t <- count %>% 
+  format(big.mark = ",") %>%
+    # markdown
+  #paste0("**", names(.), "**", "\\\n", "n=(", ., ")") %>%
+    # html
+  paste0("<b>", names(.), "</b>", "<br>", "n=(", ., ")") %>%
+  set_names(., names(count))
   names_n <- names(count) %>% set_names(., count_t)
   
-  l_c <- imap(c, ~continuous.fun(df, !! rlang::sym(.x), (!!group)) ) %>%
+  l_c <- imap(c, ~continuous.fun(stat_type=stat_type, df=df, var=!! rlang::sym(.x), group=(!!group)) ) %>%
     bind_rows(., )
   l_f <- imap(f, ~factor.fun(df, !! rlang::sym(.x), (!!group)) ) %>%
     bind_rows(.)
@@ -597,72 +624,25 @@ sum_table.fun <- function(df, val, group, gr_order) {
 }
   
 
-sum_table.fun(df=df2 %>% select(Astrand_rel_VO2, Age, Sex, Period), 
-           val = c("Sex", "Age"),
-           group = Period,
-           gr_order = unique(df2$Period))
+
 ```
 
-```{r}
-condition <- "candida"
-gr_order <- c("yes", "no")
-val <- c("age", "Contraception", "HIVstatus", "BV_Diagnosis", "Luminal_gr")
 
 
-a <- sum_table.fun(meta_all[[2]], val, candida, gr_order)
-s <- c(" ", rep(c("median (range or %)"), times=length(gr_order)), NA, NA) %>% set_names(., colnames(a))
 
-a_ <- bind_rows(s, a) %>% 
-  setNames(gsub("yes","Candida group",names(.))) %>%
-  setNames(gsub("no","Control group",names(.))) %>%
-  #add_row(Variables = "Demographics", .before = 1) %>%
-  mutate(Variables = str_replace_all(string = .$Variables, pattern = clean_names)) %>%
-  mutate(Variables = str_replace_all(string = .$Variables, pattern = bact_names)) %>%
-  mutate(Variables = str_replace_all(string = .$Variables, pattern = BV_names)) %>%
-  mutate(Variables = ifelse(grepl("  -.+|^ $", .$Variables), 
-                            .$Variables, paste0("**",.$Variables,"**")) ) #%>%
-  #select(-`**na**`, -`**p-value**`) #%>%
-  #column_to_rownames(var = "Variables")
 
-pander(a_, keep.line.breaks = TRUE)
-```
 
-```{r}
-library(pander)
-condition <- "Period"
-gr_order <- c("1995-1999", "2000-2004", "2005-2009", "2010-2014", "2015-2019", "2020-2023")  #unique(df2$Period)
-val <- c("Sex", "Age", "Astrand_rel_VO2")
-
-a <- df2 %>% 
-  select(Astrand_rel_VO2, Age, Sex, Period) %>%
-  sum_table.fun( val, Period, gr_order)
-
-pander(a, keep.line.breaks = TRUE)
-
-s <- c(" ", rep(c("median (range or %)"), times=length(gr_order)), NA, NA) %>% set_names(., colnames(a))
-
-a_ <- bind_rows(s, a) %>% 
-  mutate(Variables = ifelse(grepl("  -.+|^ $", .$Variables), 
-                            .$Variables, paste0("**",.$Variables,"**")) ) #%>%
-  #select(-`**na**`, -`**p-value**`) #%>%
-  #column_to_rownames(var = "Variables")
-
-pander(a_, keep.line.breaks = TRUE)
-
-DT::datatable(a_)
-flextable(a_)
-  
-```
 
 ## -Table 1 Lifestyle charasteristics
  
 ```{r}
 val_use <- 
   colnames(
-  df2 %>% select(Age, HeightCM, WeightKG, BMI, Astrand_rel_VO2, EkB_rel_VO2, 
+  df2 %>% select(Age, Sex, HeightCM, WeightKG, BMI, Astrand_rel_VO2, EkB_rel_VO2, 
                  BloodPressureSystolic, BloodPressureDiastolic, TobaccoSmoking))
 to_char <- c("TobaccoSmoking")
 
+t1 <- 
 df2 %>% 
   select(Period, any_of(val_use)) %>% 
   mutate(across(any_of(to_char), ~as.character(.))) %>%
@@ -670,112 +650,55 @@ df2 %>%
   sum_table.fun(., 
                 val = val_use,
                 group = Period,
-                gr_order = unique(df2$Period))
+                stat_type = "mean_ci",
+                gr_order =  c("1995-1999", "2000-2004", "2005-2009", "2010-2014", "2015-2019", "2020-2023")) #unique(df2$Period))
 
 
-
-
-
-# Create summarized table
-summary_table <- df2 %>%
-
-  group_by(Period) %>%
-  summarise(
-    Age = mean(Age, na.rm = TRUE),
-    HeightCM = mean(HeightCM, na.rm = TRUE),
-    WeightKG = mean(WeightKG, na.rm = TRUE),
-    BMI = mean(BMI, na.rm = TRUE),
-    BloodPressureSystolicMean = mean(BloodPressureSystolic, na.rm = TRUE),
-    BloodPressureDiastolicMean = mean(BloodPressureDiastolic, na.rm = TRUE),
-    EkB_rel_VO2 = mean(EkB_rel_VO2, na.rm = TRUE),
-    Astrand_rel_VO2 = mean(Astrand_rel_VO2, na.rm = TRUE),
-    Smokers = mean(TobaccoSmoking < 2, na.rm = TRUE) * 100
-  ) %>% 
-  mutate(across(where(is.numeric), round, 2))
-
-summary_table <- df2 %>%
-  group_by(Period) %>%
-  summarise(
-    Count = n(),
-    Age_Mean = mean(Age, na.rm = TRUE),
-    Age_SD = sd(Age, na.rm = TRUE),
-    HeightCM_Mean = mean(HeightCM, na.rm = TRUE),
-    HeightCM_SD = sd(HeightCM, na.rm = TRUE),
-    WeightKG_Mean = mean(WeightKG, na.rm = TRUE),
-    WeightKG_SD = sd(WeightKG, na.rm = TRUE),
-    BMI_Mean = mean(BMI, na.rm = TRUE),
-    BMI_SD = sd(BMI, na.rm = TRUE),
-    BloodPressureSystolicMean = mean(BloodPressureSystolic, na.rm = TRUE),
-    BloodPressureSystolic_SD = sd(BloodPressureSystolic, na.rm = TRUE),
-    BloodPressureDiastolicMean = mean(BloodPressureDiastolic, na.rm = TRUE),
-    BloodPressureDiastolic_SD = sd(BloodPressureDiastolic, na.rm = TRUE),
-    EkB_rel_VO2_Mean = mean(EkB_rel_VO2, na.rm = TRUE),
-    EkB_rel_VO2_SD = sd(EkB_rel_VO2, na.rm = TRUE),
-    Astrand_rel_VO2_Mean = mean(Astrand_rel_VO2, na.rm = TRUE),
-    Astrand_rel_VO2_SD = sd(Astrand_rel_VO2, na.rm = TRUE),
-    Smokers = mean(TobaccoSmoking < 2, na.rm = TRUE) * 100,
-    Smokers_SE = sqrt((Smokers/100) * (1 - Smokers/100) / Count)
-  ) %>%
-  mutate(
-    Age_CI = paste0(round(Age_Mean, 2), " (", round(Age_Mean - 1.96 * Age_SD / sqrt(Count), 2), "-", round(Age_Mean + 1.96 * Age_SD / sqrt(Count), 2), ")"),
-    HeightCM_CI = paste0(round(HeightCM_Mean, 2), " (", round(HeightCM_Mean - 1.96 * HeightCM_SD / sqrt(Count), 2), "-", round(HeightCM_Mean + 1.96 * HeightCM_SD / sqrt(Count), 2), ")"),
-    WeightKG_CI = paste0(round(WeightKG_Mean, 2), " (", round(WeightKG_Mean - 1.96 * WeightKG_SD / sqrt(Count), 2), "-", round(WeightKG_Mean + 1.96 * WeightKG_SD / sqrt(Count), 2), ")"),
-    BMI_CI = paste0(round(BMI_Mean, 2), " (", round(BMI_Mean - 1.96 * BMI_SD / sqrt(Count), 2), "-", round(BMI_Mean + 1.96 * BMI_SD / sqrt(Count), 2), ")"),
-    BloodPressureSystolic_CI = paste0(round(BloodPressureSystolicMean, 2), " (", round(BloodPressureSystolicMean - 1.96 * BloodPressureSystolic_SD / sqrt(Count), 2), "-", round(BloodPressureSystolicMean + 1.96 * BloodPressureSystolic_SD / sqrt(Count), 2), ")"),
-    BloodPressureDiastolic_CI = paste0(round(BloodPressureDiastolicMean, 2), " (", round(BloodPressureDiastolicMean - 1.96 * BloodPressureDiastolic_SD / sqrt(Count), 2), "-", round(BloodPressureDiastolicMean + 1.96 * BloodPressureDiastolic_SD / sqrt(Count), 2), ")"),
-    EkB_rel_VO2_CI = paste0(round(EkB_rel_VO2_Mean, 2), " (", round(EkB_rel_VO2_Mean - 1.96 * EkB_rel_VO2_SD / sqrt(Count), 2), "-", round(EkB_rel_VO2_Mean + 1.96 * EkB_rel_VO2_SD / sqrt(Count), 2), ")"),
-    Astrand_rel_VO2_CI = paste0(round(Astrand_rel_VO2_Mean, 2), " (", round(Astrand_rel_VO2_Mean - 1.96 * Astrand_rel_VO2_SD / sqrt(Count), 2), "-", round(Astrand_rel_VO2_Mean + 1.96 * Astrand_rel_VO2_SD / sqrt(Count), 2), ")"),
-    Smokers_CI = paste0(round(Smokers, 2), " (", round(Smokers - 1.96 * Smokers_SE, 2), "-", round(Smokers + 1.96 * Smokers_SE, 2), ")")
-  ) %>%
-  select(Period, Count, Age_CI, HeightCM_CI, WeightKG_CI, BMI_CI, BloodPressureSystolic_CI, BloodPressureDiastolic_CI, EkB_rel_VO2_CI, Astrand_rel_VO2_CI, Smokers_CI,
-         -Count) 
-
- summary_table_transposed <- 
-   summary_table %>%
-  pivot_longer(
-    -Period, 
-    names_to = "Attribute", 
-    values_to = "Value"
-  ) %>%
-  pivot_wider(
-    names_from = Period, 
-    values_from = Value,
-    names_prefix = "Period_"
-   ) 
-  
- # %>% 
-  #  mutate(across(where(is.numeric), round,1)) %>% 
-  #  flextable::flextable() 
 
 
 # Skapa en DataTable från den sammanfogade datan
 datatable(
-  summary_table_transposed,
+  t1,
   extensions = 'Buttons',
   options = list(
     scrollX = TRUE,
     pageLength = 25,
     dom = 'Bfrtip',
     buttons = c('copy', 'csv', 'excel'),
-    title = "Sammanställd Frekvens av ICD-koder"
-  )
+    title = "Sammanställd Frekvens av ICD-koder",
+    initComplete = JS(
+      "function(settings, json) {",
+      "$(this.api().table().header()).css({'font-size': '10px'});",
+      "$(this.api().table().body()).css({'font-size': '10px'});",
+      "}"
+    )
+  ),
+  class = "compact" # This class reduces padding/margin in the table
 )
 
+flextable(t1)
 
+```
+pander
+```{r}
+library(pander)
+gr_order =  c("1995-1999", "2000-2004", "2005-2009", "2010-2014", "2015-2019", "2020-2023")
 
+s <- c(" ", rep(c("mean (CI)"), times=length(gr_order)), NA, NA) %>% set_names(., colnames(t1))
+
+a_ <- bind_rows(s, t1) %>% 
+  mutate(Variables = ifelse(grepl("  -.+|^ $", .$Variables), 
+                            .$Variables, paste0("**",.$Variables,"**")) ) #%>%
+  #select(-`**na**`, -`**p-value**`) #%>%
+  #column_to_rownames(var = "Variables")
+
+pander(a_, keep.line.breaks = TRUE, split.table = Inf) 
+
+  
 ```
 
 ## -Table 2  - Sociodemographics
 N och % i var grupp
-
-
-Income level (% of median) 
-≥200 
-120–199 
-80–119 
-60–79 
-<60 
-
 
   
 ```{r}
@@ -789,301 +712,38 @@ val_use <-
 
 t2 <- df2 %>% 
   select(Period, any_of(val_use)) %>% 
-  mutate(across(any_of(to_char), ~as.character(.))) %>%
-    mutate(
-    EducationLevel = 
-      fct_relevel(EducationLevel, 
-                  "Primary", "Secondary", "Tertiary <2 years", "Higher Education", "Unknown"),
-    KommunSize = 
-      fct_relevel(KommunSize, 
-                  "rural_municipalities", "dense_municipalities", "metropolitan_municipalities", "Other"),
-    MarriedOrPartner = 
-      fct_relevel(MarriedOrPartner, 
-                  "0", "1"),
-    BirthPlace = 
-      fct_relevel(BirthPlace, 
-                  "Sweden", "In Europe", "Outside Europe")
-  ) %>% 
-  
+  # mutate(across(any_of(to_char), ~as.character(.))) %>%
   sum_table.fun(., 
                 val = val_use,
                 group = Period,
+                stat_type = "mean_ci",
                 gr_order =  c("1995-1999", "2000-2004", "2005-2009", "2010-2014", "2015-2019", "2020-2023")) #unique(df2$Period))
 
 
-
-
- summary_table <- df2 %>%
-  group_by(Period) %>%
-  summarise(
-    n = formatC(n(), big.mark = ","),
-    Men = sprintf("%s (%.1f%%)", formatC(sum(Sex == "Men"), big.mark = ","), mean(Sex == "Men") * 100),
-    Age18_35 = sprintf("%s (%.1f%%)", formatC(sum(AgeGroup == "18-35"), big.mark = ","), mean(AgeGroup == "18-35") * 100),
-    Age36_50 = sprintf("%s (%.1f%%)", formatC(sum(AgeGroup == "36-50"), big.mark = ","), mean(AgeGroup == "36-50") * 100),
-    Age51_65 = sprintf("%s (%.1f%%)", formatC(sum(AgeGroup == "51-65"), big.mark = ","), mean(AgeGroup == "51-65") * 100),
-    AgeOLD = sprintf("%s (%.1f%%)", formatC(sum(AgeGroup == ">65"), big.mark = ","), mean(AgeGroup == ">65") * 100),
-    MarriedOrPartner = sprintf("%s (%.1f%%)", formatC(sum(MarriedOrPartner == 1), big.mark = ","), mean(MarriedOrPartner == 1) * 100),
-    BirthPlaceSweden = sprintf("%s (%.1f%%)", formatC(sum(BirthPlace == "Sweden"), big.mark = ","), mean(BirthPlace == "Sweden") * 100),
-    BirthPlaceInEurope = sprintf("%s (%.1f%%)", formatC(sum(BirthPlace == "In Europe"), big.mark = ","), mean(BirthPlace == "In Europe") * 100),
-    BirthPlaceOutsideEurope = sprintf("%s (%.1f%%)", formatC(sum(BirthPlace == "Outside Europe"), big.mark = ","), mean(BirthPlace == "Outside Europe") * 100),
-    White_collar = sprintf("%s (%.1f%%)", formatC(sum(SSYK_WB == "White-Collar"), big.mark = ","), mean(SSYK_WB == "White-Collar") * 100),
-    Blue_collar = sprintf("%s (%.1f%%)", formatC(sum(SSYK_WB == "Blue-Collar"), big.mark = ","), mean(SSYK_WB == "Blue-Collar") * 100),
-    High_Skilled = sprintf("%s (%.1f%%)", formatC(sum(SSYK_Category == "High-Skilled", na.rm = TRUE), big.mark = ","), mean(SSYK_Category == "High-Skilled", na.rm = TRUE) * 100),
-    Clerical_and_Service = sprintf("%s (%.1f%%)", formatC(sum(SSYK_Category == "Clerical and Service Workers", na.rm = TRUE), big.mark = ","), mean(SSYK_Category == "Clerical and Service Workers", na.rm = TRUE) * 100),
-    Skilled_Manual = sprintf("%s (%.1f%%)", formatC(sum(SSYK_Category == "Skilled Manual", na.rm = TRUE), big.mark = ","), mean(SSYK_Category == "Skilled Manual", na.rm = TRUE) * 100),
-    Elementary_Occupations = sprintf("%s (%.1f%%)", formatC(sum(SSYK_Category == "Elementary Occupations", na.rm = TRUE), big.mark = ","), mean(SSYK_Category == "Elementary Occupations", na.rm = TRUE) * 100),
-    metropolitan_municipalities = sprintf("%s (%.1f%%)", formatC(sum(KommunSize == "metropolitan_municipalities"), big.mark = ","), mean(KommunSize == "metropolitan_municipalities") * 100),
-    dense_municipalities = sprintf("%s (%.1f%%)", formatC(sum(KommunSize == "dense_municipalities"), big.mark = ","), mean(KommunSize == "dense_municipalities") * 100),
-    rural_municipalities = sprintf("%s (%.1f%%)", formatC(sum(KommunSize == "rural_municipalities"), big.mark = ","), mean(KommunSize == "rural_municipalities") * 100),
-    EducationPrimary = sprintf("%s (%.1f%%)", formatC(sum(EducationLevel == "Primary"), big.mark = ","), mean(EducationLevel == "Primary") * 100),
-    EducationSecondary = sprintf("%s (%.1f%%)", formatC(sum(EducationLevel == "Secondary"), big.mark = ","), mean(EducationLevel == "Secondary") * 100),
-    EducationTertiary = sprintf("%s (%.1f%%)", formatC(sum(EducationLevel == "Tertiary <2 years"), big.mark = ","), mean(EducationLevel == "Tertiary <2 years") * 100),
-    EducationHigher = sprintf("%s (%.1f%%)", formatC(sum(EducationLevel == "Higher Education"), big.mark = ","), mean(EducationLevel == "Higher Education") * 100),
-    IncomeLess60 = sprintf("%s (%.1f%%)", formatC(sum(IncomeLevel == "<60%"), big.mark = ","), mean(IncomeLevel == "<60%") * 100),
-    Income60_79 = sprintf("%s (%.1f%%)", formatC(sum(IncomeLevel == "60–79%"), big.mark = ","), mean(IncomeLevel == "60–79%") * 100),
-    Income80_119 = sprintf("%s (%.1f%%)", formatC(sum(IncomeLevel == "80–119%"), big.mark = ","), mean(IncomeLevel == "80–119%") * 100),
-    Income120_199 = sprintf("%s (%.1f%%)", formatC(sum(IncomeLevel == "120–199%"), big.mark = ","), mean(IncomeLevel == "120–199%") * 100),
-    Income200Plus = sprintf("%s (%.1f%%)", formatC(sum(IncomeLevel == "≥200%"), big.mark = ","), mean(IncomeLevel == "≥200%") * 100)
-  ) %>%
-  pivot_longer(
-    cols = -Period, 
-    names_to = "Attribute", 
-    values_to = "Value"
-  ) %>%
-  pivot_wider(
-    names_from = Period, 
-    values_from = Value,
-    names_prefix = "Period_"
-  ) %>% 
-  mutate(
-    Table_Category = case_when(
-      Attribute %in% c("Men", "Age18_35", "Age36_50", "Age51_65", "AgeOLD", "Married", "BirthPlaceSweden", "BirthPlaceInEurope", "BirthPlaceOutsideEurope", "EducationPrimary", "EducationSecondary", "EducationTertiary", "EducationHigher") ~ "Sociodemographic",
-      TRUE ~ "Worklife Characteristics"
+datatable(
+  t2,
+  extensions = 'Buttons',
+  options = list(
+    scrollX = TRUE,
+    pageLength = 25,
+    dom = 'Bfrtip',
+    buttons = c('copy', 'csv', 'excel'),
+    title = "Sammanställd Frekvens av ICD-koder",
+    initComplete = JS(
+      "function(settings, json) {",
+      "$(this.api().table().header()).css({'font-size': '10px'});",
+      "$(this.api().table().body()).css({'font-size': '10px'});",
+      "}"
     )
-  ) %>%
-  flextable::flextable()
-```
-
-
-
-# finction
-Handles both continuous (numeric) and categorical data: For continuous data, it should calculate either mean with a 95% confidence interval or median with interquartile range (IQR), based on the specified method. For categorical data, it should count each category and calculate the percentage.
-
-Groups by a specified column and should be able to use without groupby: The function should group the data by this column and perform the summarizations within each group.
-
-Outputs a wide-format table: Each group should be a separate column, and each row should correspond to a specific variable or category.
-
-Modular approach: Separate helper functions for numeric and categorical data, allowing for different summary types.
-```{r}
-create_summary_table <- function(df, numeric_summary = c("mean", "ci"), categorical_summary = "n_pct", group_by_column = NULL) {
-  
-  # Helper function for numeric summary
-  numeric_summary_fun <- function(x, summary_type) {
-    if (summary_type == "mean") {
-      mean(x, na.rm = TRUE)
-    } else if (summary_type == "median") {
-      median(x, na.rm = TRUE)
-    } else if (summary_type == "ci") {
-      # Calculate mean and 95% confidence interval
-      m <- mean(x, na.rm = TRUE)
-      se <- sd(x, na.rm = TRUE) / sqrt(sum(!is.na(x)))
-      ci_lower <- m - 1.96 * se
-      ci_upper <- m + 1.96 * se
-      paste0(round(m, 2), " (", round(ci_lower, 2), "-", round(ci_upper, 2), ")")
-    } else {
-      NA
-    }
-  }
-
-  # Helper function for categorical summary
-  categorical_summary_fun <- function(x) {
-    if (categorical_summary == "n_pct") {
-      sprintf("%s (%.1f%%)", formatC(sum(x), big.mark = ","), 100 * mean(x, na.rm = TRUE))
-    } else {
-      NA
-    }
-  }
-  
-  # Conditional grouping
-  if (!is.null(group_by_column)) {
-    df <- df %>% group_by(!!sym(group_by_column))
-  }
-  
-  # Create summarized table
-  summary_table <- df %>%
-    summarise(across(where(is.numeric), ~numeric_summary_fun(., numeric_summary)),
-              across(where(is.factor), ~categorical_summary_fun(.)))
-  
-  # Transpose if needed
-  summary_table_transposed <- summary_table %>%
-    pivot_longer(cols = -!!sym(group_by_column), names_to = "Attribute", values_to = "Value") %>%
-    pivot_wider(names_from = !!sym(group_by_column), values_from = Value, names_prefix = paste0(group_by_column, "_"))
-
-  return(summary_table_transposed)
-}
-
-# Example usage
- result <- create_summary_table(df2 %>% select(EkB_rel_VO2,Age, Sex, Period), numeric_summary = "ci", group_by_column = "Period")
- 
- 
- 
- 
- 
- 
- 
- 
-
- 
- 
-library(dplyr)
-library(tidyr)
-
-create_summary_table <- function(df, numeric_summary = c("mean", "ci"), categorical_summary = "n_pct", group_by_column = NULL) {
-  
-  # Helper function for numeric summary
-  numeric_summary_fun <- function(x, summary_types) {
-    summary_values <- character()
-    if ("mean" %in% summary_types) {
-      summary_values <- c(summary_values, round(mean(x, na.rm = TRUE), 2))
-    }
-    if ("median" %in% summary_types) {
-      summary_values <- c(summary_values, round(median(x, na.rm = TRUE), 2))
-    }
-    if ("ci" %in% summary_types) {
-      m <- mean(x, na.rm = TRUE)
-      se <- sd(x, na.rm = TRUE) / sqrt(sum(!is.na(x)))
-      ci_lower <- round(m - 1.96 * se, 2)
-      ci_upper <- round(m + 1.96 * se, 2)
-      summary_values <- c(summary_values, paste0(m, " (", ci_lower, "-", ci_upper, ")"))
-    }
-    return(toString(summary_values))
-  }
-
-  # Helper function for categorical summary
-  categorical_summary_fun <- function(x) {
-    if (categorical_summary == "n_pct") {
-      tbl <- table(x)
-      pct <- prop.table(tbl) * 100
-      return(toString(paste(names(tbl), formatC(tbl, big.mark = ","), "(", round(pct, 1), "%)", sep=": ")))
-    }
-    return(NA)
-  }
-  
-  # Conditional grouping
-  if (!is.null(group_by_column)) {
-    df <- df %>% group_by(!!sym(group_by_column))
-  }
-  
-  # Create summarized table
-  summary_table <- df %>%
-    summarise(
-      across(where(is.numeric), ~numeric_summary_fun(., numeric_summary), .names = "num_{.col}"),
-      across(where(~ is.factor(.x) || is.character(.x)), ~categorical_summary_fun(.x), .names = "cat_{.col}")
-    )
-
-  # Pivot and format the summary table
-  summary_table_transposed <- summary_table %>%
-    pivot_longer(cols = -!!sym(group_by_column), names_to = "Attribute", values_to = "Value") %>%
-    pivot_wider(names_from = Attribute, values_from = Value, names_prefix = "")
-
-  return(summary_table_transposed)
-}
-
-# Example usage
-result <- create_summary_table(df2 %>% select(EkB_rel_VO2, Age, Sex, Period), group_by_column = "Period")
-
-# Example usage
- result <- create_summary_table(df2 %>% select(EkB_rel_VO2,Age, Sex, Period), numeric_summary = "mean_ci", group_by_column = "Period", round_digits = 2)
-
-# Example usage
- result <- create_summary_table(df2 %>% select(EkB_rel_VO2,Age, Sex, Period), numeric_summary = "mean_ci", group_by_column = "Period")
-
-# Example usage
- result_without_group <- create_summary_table(df2 %>% select(EkB_rel_VO2,Age, Sex, Period), numeric_summary = "median_iqr")
- result_with_group <- create_summary_table(df2 %>% select(EkB_rel_VO2,Age, Sex, Period), numeric_summary = "mean_ci", group_by_column = "Period")
-# Example usage
- result <- create_summary_table(df2 %>% select(EkB_rel_VO2,Age, Sex, Period), numeric_summary = "median_iqr",categorical_summary = "n_pct", group_by_column = "Period")
- 
- 
- 
- 
- 
- 
- 
- 
-library(tidyverse)
-
-create_summary_table <- function(df, numeric_cols, cat_cols, group_by_col=NULL, numeric_summary="mean_ci") {
-  
-  # Helper function for numeric summary (mean and 95% CI)
-  numeric_summary_fun <- function(x, summary_type) {
-    if (summary_type == "mean_ci") {
-      m <- mean(x, na.rm = TRUE)
-      se <- sd(x, na.rm = TRUE) / sqrt(sum(!is.na(x)))
-      ci_lower <- round(m - 1.96 * se, 2)
-      ci_upper <- round(m + 1.96 * se, 2)
-      return(paste0(m, " (", ci_lower, "-", ci_upper, ")"))
-    }
-    return(NA)
-  }
-
-  # Helper function for categorical summary (count and percentage)
-  categorical_summary_fun <- function(x) {
-    tbl <- table(x)
-    pct <- prop.table(tbl) * 100
-    return(data.frame(category = names(tbl), count = tbl, percent = round(pct, 1)))
-  }
-  
-  # Conditional grouping
-  if (!is.null(group_by_col)) {
-    df <- df %>% group_by(!!sym(group_by_col))
-  }
-  
-  # Create summarized table
-  numeric_summary_df <- df %>%
-    summarise(across(all_of(numeric_cols), ~numeric_summary_fun(., numeric_summary), .names = "num_{.col}"))
-
-  cat_summary_df <- map_dfr(all_of(cat_cols), ~{
-    df %>%
-      summarise(!!sym(.x) := categorical_summary_fun(!!sym(.x))) %>%
-      unnest(!!sym(.x))
-  }, .id = "category")
-
-  # Combine numeric and categorical summaries
-  combined_summary_df <- bind_rows(numeric_summary_df, cat_summary_df)
-
-  # Pivot and format the summary table
-  summary_table_transposed <- combined_summary_df %>%
-    pivot_longer(cols = -!!sym(group_by_col), names_to = "Attribute", values_to = "Value") %>%
-    pivot_wider(names_from = !!sym(group_by_col), values_from = Value)
-
-  return(summary_table_transposed)
-}
-
-# Example usage:
-# create_summary_table(df2, numeric_cols = c("Age", "Astrand_rel_VO2"), cat_cols = c("Sex"), group_by_col = "Period", numeric_summary = "mean_ci")
-
-# Example usage:
-create_summary_table(df2 %>% select(Astrand_rel_VO2, Age, Sex, Period), numeric_cols = c("Age", "Astrand_rel_VO2"), cat_cols = c("Sex"), group_by_col = "Period", numeric_summary = "mean_ci")
-
-
-
-# Example usage:
- create_summary_table(df2 %>% select(Astrand_rel_VO2, Age, Sex, Period ), numeric_cols = c("Age", "Astrand_rel_VO2"), cat_cols = c("Sex"), group_by_col = "Period", numeric_summary = "mean_ci")
-# create_summary_table(df, numeric_cols = c("age", "height"), cat_cols = c("gender", "smoker"), numeric_summary = "median_iqr")
+  ),
+  class = "compact" # This class reduces padding/margin in the table
+)
 
 ```
-
-
-
-
-
 
 
 ## -Table 3 worklife charasteristics
 
-
-Total
 Contractual relationship insecurity
 Directly employed by the employer (0)
 Employed by an agency (-1) Combination of self- and direct employment (-1) Self-employed (-1)
@@ -1094,74 +754,52 @@ CBA coverage (% likelihood)
 https://isf.se/publikationer/rapporter/2018/2018-09-04-vem-far-avsattningar-till-tjanstepension
 ```{r}
 
-# Create summarized table
-summary_table <- df2 %>%
+to_char <- c("SSYK1_scb_hpi_combined")
 
-  group_by(Period) %>%
-  summarise(
-    n = n(),
-    Men = mean(Sex == "Men") * 100,
-    Age18_35 = mean(AgeGroup == "18-35") * 100,
-    Age36_50 = mean(AgeGroup == "36-50") * 100,
-    Age51_65 = mean(AgeGroup == "51-65") * 100,
-    AgeOLD = mean(AgeGroup == ">65") * 100,
-    Married = mean(Married, na.rm = TRUE) * 100,
-    BirthPlaceSweden = mean(BirthPlace == "Sweden") * 100,
-    BirthPlaceInEurope = mean(BirthPlace == "In Europe") * 100,
-    BirthPlaceOutsideEurope = mean(BirthPlace == "Outside Europe") * 100,
-    White_collar = mean(SSYK_WB == "White-Collar") * 100,
-    Blue_collar = mean(SSYK_WB == "Blue-Collar") * 100,
-    metropolitan_municipalities = mean(KommunSize == "metropolitan_municipalities") * 100,
-    dense_municipalities = mean(KommunSize == "dense_municipalities") * 100,
-    rural_municipalities = mean(KommunSize == "rural_municipalities") * 100,
-    # MedianIncome = median(CSFVI),
-    MedianIncomeQ1 = median(CSFVI[IncomeQuartile == 1], na.rm = TRUE),
-    MedianIncomeQ2 = median(CSFVI[IncomeQuartile == 2], na.rm = TRUE),
-    MedianIncomeQ3 = median(CSFVI[IncomeQuartile == 3], na.rm = TRUE),
-    MedianIncomeQ4 = median(CSFVI[IncomeQuartile == 4], na.rm = TRUE),
-    EducationLow = mean(EducationLevel == "Basic education") * 100,
-    EducationMedium = mean(EducationLevel == "Secondary to Post-Secondary Education") * 100,
-    EducationHigh = mean(EducationLevel == "Higher Education") * 100,
-    BloodPressureSystolicMean = mean(BloodPressureSystolic, na.rm = TRUE),
-    BloodPressureDiastolicMean = mean(BloodPressureDiastolic, na.rm = TRUE),
-    BMI = mean(BMI, na.rm = TRUE),
-    EkB_rel_VO2 = mean(EkB_rel_VO2, na.rm = TRUE),
-    Astrand_rel_VO2 = mean(Astrand_rel_VO2, na.rm = TRUE),
-    Smokers = mean(TobaccoSmoking < 2) * 100
-  ) %>% 
-  mutate(across(where(is.numeric), round, 2))
-
-
-
- summary_table_transposed <- 
-   summary_table %>%
-  pivot_longer(
-    -Period, 
-    names_to = "Attribute", 
-    values_to = "Value"
-  ) %>%
-  pivot_wider(
-    names_from = Period, 
-    values_from = Value,
-    names_prefix = "Period_"
-   ) 
+val_use <- 
+  colnames(
+  df2 %>% select(
+    IncomeLevel, SSYK_Category, SSYK1_scb_hpi_combined
+    ) 
+    )
   
- # %>% 
-  #  mutate(across(where(is.numeric), round,1)) %>% 
-  #  flextable::flextable() 
+df2 %>% count(IncomeLevel)
+
+
+t3 <- df2 %>% 
+  select(Period, any_of(val_use)) %>% 
+  mutate(across(any_of(to_char), ~as.character(.))) %>%
+ 
+  
+  sum_table.fun(., 
+                val = val_use,
+                group = Period,
+                gr_order =  c("1995-1999", "2000-2004", "2005-2009", "2010-2014", "2015-2019", "2020-2023")) #unique(df2$Period))
+
+
+
+
+
 
 
 # Skapa en DataTable från den sammanfogade datan
 datatable(
-  summary_table_transposed,
+  t3,
   extensions = 'Buttons',
   options = list(
     scrollX = TRUE,
     pageLength = 25,
     dom = 'Bfrtip',
     buttons = c('copy', 'csv', 'excel'),
-    title = "Sammanställd Frekvens av ICD-koder"
-  )
+    title = "Sammanställd Frekvens av ICD-koder",
+    initComplete = JS(
+      "function(settings, json) {",
+      "$(this.api().table().header()).css({'font-size': '10px'});",
+      "$(this.api().table().body()).css({'font-size': '10px'});",
+      "}"
+    )
+  ),
+  class = "compact" # This class reduces padding/margin in the table
 )
 
 ```
