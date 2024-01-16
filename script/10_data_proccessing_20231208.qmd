@@ -8,13 +8,17 @@ format:
     embed-resources: true
     page-layout: full
     grid:
-      margin-width: 100px
-      body-width: 1000px
+      sidebar-width: 200px
+      margin-width: 200px
+      body-width: 1100px
 author: Daniel Väisänen
 editor:
   markdown: 
     wrap: sentence
 toc: true
+toc-depth: 2
+toc-location: left
+toc-expand: true
 execute: 
   warning: false
   echo: true
@@ -45,21 +49,23 @@ xfun::pkg_attach(
 ## Base theme
 
 ```{r}
-theme_set(
-  theme_minimal(
-    base_size = 16,
-    base_family = "Roboto"
-  ) +
-    theme(
-      legend.position = "top",
-      panel.grid.major.y = element_line(),
-      panel.grid.minor.y = element_blank(),
-      panel.grid.major.x = element_line(),
-      panel.grid.minor.x = element_blank(),
-      axis.title.y = element_text(margin = margin(r = 10), colour = "grey30"),
-      axis.title.x = element_text(margin = margin(t = 10), colour = "grey30")
-    )
-)
+# theme_set(
+#   theme_minimal(
+#     base_size = 16,
+#     base_family = "Roboto"
+#   ) +
+#     theme(
+#       legend.position = "top",
+#       panel.grid.major.y = element_blank(),
+#       panel.grid.minor.y = element_blank(),
+#       panel.grid.major.x = element_blank(),
+#       panel.grid.minor.x = element_blank(),
+#       axis.title.y = element_blank(),
+#       axis.title.x = element_blank()
+#     )
+# )
+
+
 ```
 
 #-------------------------
@@ -155,37 +161,9 @@ sums %>%
 
 
 
-# Variable creations
-* Uppgift saknas
-1 Förgymnasial utbildning kortare än 9 år
-2 Förgymnasial utbildning 9 år
-3 Gymnasial utbildning högst 2-årig
-4 Gymnasial utbildning 3 år
-5 Eftergymnasial utbildning kortare än 3 år
-6 Eftergymnasial utbildning 3 år eller längre (exkl. forskarutbildning)
-7 Forskarutbildning 
-
-
-High-Skilled Group:  
-Managers and Administrators
-Professionals (e.g., healthcare, education, IT)
-Technicians and Associate Professionals
-This group encompasses roles that typically require advanced education, specialized skills, and a high level of expertise.
-
-Skilled Manual (Blue Collar) Group:  
-Skilled Agricultural, Forestry, and Fishery Workers
-Craft and Related Trades Workers
-Plant and Machine Operators, and Assemblers
-Jobs in this group generally require specific vocational skills or training, often involving manual labor or technical expertise.
-Clerical and Service Workers Group:
-
-Clerical Support Workers:   
-Service and Sales Workers
-This group covers roles primarily in the service sector, including both office-based clerical jobs and customer-facing service roles. These occupations may require certain levels of training and skills, but not to the extent of the high-skilled group.
-Elementary Occupations Group:
-
-Elementary Occupations:    
-This group includes occupations that usually perform simple and routine tasks, which may require the use of hand-held tools and physical effort. These roles often do not require formal educational credentials or specialized training.
+  
+# Variable creation
+d <-pxweb:: pxweb_interactive()
 ```{r}
 # data from tillväxtverket, another possibility could be skr
 metropolitan_municipalities <- c("114", "123", "126", "127", "128", "136", "138", "139", "160", 
@@ -258,6 +236,7 @@ df1 <- df %>%
   mutate(BirthPlace = case_when(
     FodelseLandEU28 == "Sverige" ~ "Sweden",
     FodelseLandEU28 %in% c("EU utom Norden", "Europa utom EU och Norden", "Norden utom Sverige") ~ "In Europe",
+    FodelseLandEU28 %in% 'Okänt'  ~ NA_character_,
     TRUE ~ "Outside Europe"
   )) %>%
   # Categorize Kommun based on hypothetical population size categories
@@ -265,7 +244,7 @@ df1 <- df %>%
     Kommun %in% metropolitan_municipalities ~ "metropolitan_municipalities",
     Kommun %in% dense_municipalities ~ "dense_municipalities",
     Kommun %in% rural_municipalities ~ "rural_municipalities",
-    TRUE ~ "Other"
+    TRUE ~ NA_character_
   )) %>%
 
   # Categorize education level
@@ -274,7 +253,7 @@ df1 <- df %>%
     SUN2000Niva_Old %in% 3:4 ~ "Secondary",
     SUN2000Niva_Old %in% 5 ~ "Tertiary <2 years",
     SUN2000Niva_Old %in% 6:7 ~ "Higher Education",
-    TRUE ~ "Unknown"
+    TRUE ~ NA_character_
   )) %>% 
     # Divide income into quartiles
   mutate(IncomeQuartile = ntile(CSFVI, 4), 
@@ -284,7 +263,8 @@ df1 <- df %>%
     CSFVI >= 1.2 * median(CSFVI) & CSFVI < 2 * median(CSFVI) ~ "120–199%",
     CSFVI >= 0.8 * median(CSFVI) & CSFVI < 1.2 * median(CSFVI) ~ "80–119%",
     CSFVI >= 0.6 * median(CSFVI) & CSFVI < 0.8 * median(CSFVI) ~ "60–79%",
-    TRUE ~ "<60%"
+    CSFVI < 0.6 * median(CSFVI) ~"<60%",
+    TRUE ~ NA_character_
   ), .by = Period) %>% 
   # combine occupation
     mutate(
@@ -297,12 +277,55 @@ SSYK_Category = case_when(
     SSYK1_scb_hpi_combined %in% 4:5 ~ "Clerical and Service Workers",        # Clerical and service workers group
     SSYK1_scb_hpi_combined %in% 6:8 ~ "Skilled Manual",        # Skilled manual or blue-collar group
     SSYK1_scb_hpi_combined == 9 ~ "Elementary Occupations"                   # Elementary occupations group
-)) %>% 
+),
+SSYK1_scb_hpi_combined = case_when(
+    SSYK1_scb_hpi_combined == "0" ~ "Armed forces occupations",
+    SSYK1_scb_hpi_combined == "1" ~ "Managers",
+    SSYK1_scb_hpi_combined == "2" ~ "Occupations requiring advanced level of higher education",
+    SSYK1_scb_hpi_combined == "3" ~ "Occupations requiring higher education qualifications or equivalent",
+    SSYK1_scb_hpi_combined == "4" ~ "Administration and customer service clerks",
+    SSYK1_scb_hpi_combined == "5" ~ "Service, care and shop sales workers",
+    SSYK1_scb_hpi_combined == "6" ~ "Agricultural, horticultural, forestry and fishery workers",
+    SSYK1_scb_hpi_combined == "7" ~ "Building and manufacturing workers",
+    SSYK1_scb_hpi_combined == "8" ~ "Mechanical manufacturing and transport workers, etc.",
+    SSYK1_scb_hpi_combined == "9" ~ "Elementary occupations",
+    TRUE ~ SSYK1_scb_hpi_combined # Keeps the original value if none of the above conditions are met
+  ),
+SNI = case_when(
+    SNI == "A" ~ "Agriculture, forestry and fishing",
+    SNI == "B" ~ "Mining and quarrying",
+    SNI == "C" ~ "Manufacturing",
+    SNI == "D" ~ "Electricity, gas, steam and air conditioning supply",
+    SNI == "E" ~ "Water supply; sewerage, waste management and remediation activities",
+    SNI == "F" ~ "Construction",
+    SNI == "G" ~ "Wholesale and retail trade; repair of motor vehicles and motorcycles",
+    SNI == "H" ~ "Transportation and storage",
+    SNI == "I" ~ "Accommodation and food service activities",
+    SNI == "J" ~ "Information and communication",
+    SNI == "K" ~ "Financial and insurance activities",
+    SNI == "L" ~ "Real estate activities",
+    SNI == "M" ~ "Professional, scientific and technical activities",
+    SNI == "N" ~ "Administrative and support service activities",
+    SNI == "O" ~ "Public administration and defence; compulsory social security",
+    SNI == "P" ~ "Education",
+    SNI == "Q" ~ "Human health and social work activities",
+    SNI == "R" ~ "Arts, entertainment and recreation",
+    SNI == "S" ~ "Other service activities",
+    SNI == "T" ~ "Activities of households as employers; undifferentiated goods- and services-producing activities of households for own use",
+    SNI == "U" ~ "Activities of extraterritorial organisations and bodies",
+    TRUE ~ SNI # Keeps the original value if none of the above conditions are met
+  ),
+BMI_cat = case_when(BMI > 25 & BMI < 30 ~ ">25",
+                    BMI > 30 ~ ">30",
+TRUE ~ "<=25"),
+astr_cat = if_else(Astrand_rel_VO2 > 32, ">32", "<32"),
+SNI = substr(IndustryCodeTopSNI2007, 1, 1)
+ ) %>% 
   # factors
    mutate(
     EducationLevel =
       factor(EducationLevel,
-             levels = c("Primary", "Secondary", "Tertiary <2 years", "Higher Education", "Unknown")),
+             levels = c("Higher Education", "Tertiary <2 years", "Secondary", "Primary", "Unknown")),
     KommunSize =
       factor(KommunSize,
              levels = c("rural_municipalities", "dense_municipalities", "metropolitan_municipalities", "Other")),
@@ -314,10 +337,45 @@ SSYK_Category = case_when(
              levels = c("Sweden", "In Europe", "Outside Europe")),
     IncomeLevel =
       factor(IncomeLevel,
-             levels = c("<60%", "60–79%", "80–119%", "120–199%", "≥200%")),
+             levels = c("≥200%", "120–199%", "80–119%", "60–79%", "<60%")),
         SSYK_Category =
       factor(SSYK_Category,
-             levels = c("High-Skilled", "Skilled Manual", "Clerical and Service Workers", "Elementary Occupations"))
+             levels = c("High-Skilled", "Skilled Manual", "Clerical and Service Workers", "Elementary Occupations")),
+    factor(SSYK1_scb_hpi_combined, levels = c(
+    "Armed forces occupations",
+    "Managers",
+    "Occupations requiring advanced level of higher education",
+    "Occupations requiring higher education qualifications or equivalent",
+    "Administration and customer service clerks",
+    "Service, care and shop sales workers",
+    "Agricultural, horticultural, forestry and fishery workers",
+    "Building and manufacturing workers",
+    "Mechanical manufacturing and transport workers, etc.",
+    "Elementary occupations"
+  )),
+  SNI = factor(SNI, levels = c(
+    "Agriculture, forestry and fishing",
+    "Mining and quarrying",
+    "Manufacturing",
+    "Electricity, gas, steam and air conditioning supply",
+    "Water supply; sewerage, waste management and remediation activities",
+    "Construction",
+    "Wholesale and retail trade; repair of motor vehicles and motorcycles",
+    "Transportation and storage",
+    "Accommodation and food service activities",
+    "Information and communication",
+    "Financial and insurance activities",
+    "Real estate activities",
+    "Professional, scientific and technical activities",
+    "Administrative and support service activities",
+    "Public administration and defence; compulsory social security",
+    "Education",
+    "Human health and social work activities",
+    "Arts, entertainment and recreation",
+    "Other service activities",
+    "Activities of households as employers; undifferentiated goods- and services-producing activities of households for own use",
+    "Activities of extraterritorial organisations and bodies"
+  ))
   )
   
 
@@ -354,9 +412,9 @@ df1 |>
     Year < 1995 ~ "{formatC(.excluded, big.mark = ',',format = 'fg')} Year < 1995",
     CSFVI == 0 ~ "{formatC(.excluded, big.mark = ',',format = 'fg')} with income 0kr",
    # Age > 65 ~  "{formatC(.excluded, big.mark = ',',format = 'fg')} with age > 65" ,
-    is.na(SSYK1_scb_hpi_combined) ~  "{formatC(.excluded, big.mark = ',',format = 'fg')} with NA in SSYK" ,
-    is.na(Civil) ~  "{formatC(.excluded, big.mark = ',',format = 'fg')} with NA in Civil",
-    FodelseLandEU28=="Okänt" ~  "{formatC(.excluded, big.mark = ',',format = 'fg')} with 'Okänt'in fodelselandEU28",
+   # is.na(SSYK1_scb_hpi_combined) ~  "{formatC(.excluded, big.mark = ',',format = 'fg')} with NA in SSYK" ,
+   # is.na(Civil) ~  "{formatC(.excluded, big.mark = ',',format = 'fg')} with NA in Civil",
+  #  FodelseLandEU28=="Okänt" ~  "{formatC(.excluded, big.mark = ',',format = 'fg')} with 'Okänt'in fodelselandEU28",
    # SUN2000Niva_Old=="*" ~  "{formatC(.excluded, big.mark = ',',format = 'fg')} with NA in education (*)"
   ) %>% 
   status(.messages = "n={formatC(.count, big.mark = ',')}") %>% 
@@ -375,7 +433,7 @@ df1 |>
 
 df2 %>% flowchart()
 
-
+df2 <- df2 %>% as_tibble()
 #df1 |> 
  # flowchart(filename="testtype",
   #          formats = c("png","svg", "pdf"),
@@ -383,19 +441,24 @@ df2 %>% flowchart()
     #                    maxHeight = 20)
 
 
-
 ```
 
 #-------------------------
-# Descriptive tables
 
-## function for creating tables
+# Function for creating table 1
+sum_table.fun(df, val, group, gr_order, stat_type)
 
+df- data frame.  
+val- vector of character names c("xx","xxx").   
+group- grouping variable.  
+gr_order-order of the grouping variable options.  
+stat_type-uncertainty-for continuous vars, options: mean_ci, mean_sd, median_q1q3, median_range.   
 ```{r Table functions}
 # test statistics
 # continuous multi group: anova/Kruskal  (parametric/non-parametric)
 # continuous one or two group: t-test/Man-Whitney U (parametric/non-parametric)
-# categorical two or more groups: Pearson's chi-squared or Fisher’s exact test
+# categorical two or more groups: Pearson's chi-squared or Fisher’s exact test or 
+# Monte Carlo simulation approach, which is an approximate method.
 # if any of the expected frequencies are < 5 in the contingency table
 
 # https://www.saem.org/about-saem/academies-interest-groups-affiliates2/cdem/for-students/cdem-voice/educational-research-column/educational-research-column-choosing-wisely-chi-square-vs.-fisher-s-exact
@@ -418,6 +481,18 @@ factor.fun <- function(df, var, group){
   var <- enquo(var)
   group <- enquo(group)
   
+round.fun <- function(x) {
+  sapply(x, function(y) {
+    if(y >= 10) {
+      round(y, digits = 0)
+    } else if(y >= 0 & y < 10) {
+      sprintf("%.1f", round(y, digits = 1))
+    } else {
+      formatC(y, format = "e", digits = 1)
+    }
+  })
+}
+  
   contingency.table <- df %>%
     select(!!var, !!group) %>%
     table() 
@@ -426,15 +501,17 @@ factor.fun <- function(df, var, group){
   test <- chisq.test(contingency.table)
   t <- "2"
   
-  # Fisher’s exact test:
+  # Fisher’s exact test but with Monte Carlo simulation approach, which is an approximate method.
   if(min(test$expected)<5)
-    {test <- fisher.test(contingency.table)
+    {test <- fisher.test(contingency.table, simulate.p.value = TRUE, B = 20000)
     t <- "4"}
     
   p.val <- test[["p.value"]] #%>% formatC(., format = "e", digits = 1) %>% paste0("$$ ",.,"^2 $$")
   if(p.val == ""){p.val <- NA}
     else if(p.val < 0.01){p.val <- "<0.01"}
       else{p.val <- sprintf(p.val, fmt = '%#.2f')}
+  
+  
   na <- sum(is.na(pull(df, !!var)))
   tab <- tibble("Variables"=as_label(var),"na"=as.numeric(na), "p-value"=p.val) #as.numeric(p.val)
   
@@ -447,7 +524,7 @@ factor.fun <- function(df, var, group){
     ungroup() %>%
     mutate(sum = map(data, ~sum(.$n))) %>%
     unnest(c(data, sum)) %>%
-    mutate(percent = round(100*(n/sum))) %>%
+    mutate(percent = round.fun(100*(n/sum))) %>% 
     mutate( val = paste0(format(.$n, big.mark = ",")," (",.$percent,"%)")) %>% # !!as_label(var) :
     select(-sum, -n, -percent) %>%
     pivot_wider(., names_from = (!!group), values_from = val ) %>%
@@ -470,6 +547,8 @@ factor.fun <- function(df, var, group){
 # CONTINUOUS FUNCTION #
 #######################
 # d_ <- continuous.fun(df, Age, Period)
+# d_ <- continuous.fun(df2, Astrand_MaxVO2, Period, "mean_ci")
+#d_ <- continuous.fun(df2, Health, Period, "mean_ci")
 continuous.fun <- function(df, var, group, stat_type){
   var <- enquo(var)
   group <- enquo(group)
@@ -477,23 +556,51 @@ continuous.fun <- function(df, var, group, stat_type){
   name_v <- as_label(var) 
   
   # round decimals
-  round.fun <- function(x){
-    df <- x %>%
-    mutate_if(
-    is.numeric,
-    ~ ifelse(.x >= 1|.x==0, round(.x, digits = 1),
-            ifelse(.x >= 0.01 & .x<= 0.9, round(.x, digits = 1),
-                                          formatC(.x, format = "e", digits = 1))))
-  }
+round.fun <- function(x) {
+  df <- x %>%
+    mutate(across(.cols = "percent", 
+                  ~ ifelse(.x >= 10, 
+                           round(.x, digits = 0),  
+                           ifelse(.x >= 0 & .x < 10, 
+                                  sprintf("%.1f",round(.x, digits = 1)),
+                                  formatC(.x, format = "e", digits = 1))))) %>%
+    mutate(across(where(~ is.numeric(.) && !identical(names(.), "percent")), 
+                  ~ ifelse(.x >= 1 | .x == 0, 
+                           round(.x, digits = 1),
+                           ifelse(.x >= 0.01 & .x <= 0.9, 
+                                  round(.x, digits = 1),
+                                  formatC(.x, format = "e", digits = 1)))))
+  return(df)
+}
+
+#### Helper function for numeric summary (mean and 95% CI) ####
+#  mean_confidence.fun <- function(m, se) {
+#     ci_lower <- m - 1.96 * se
+#     ci_upper <- m + 1.96 * se
+# 
+#     # Check if the variable is 'Astrand_MaxVO2'
+#     if({{var}} == "Astrand_MaxVO2") {
+#         # Do not round for 'Astrand_MaxVO2'
+#         return(sprintf("%s (%s-%s)", m, ci_lower, ci_upper))
+#     } else {
+#         # Round to 2 decimal places for other variables
+#         ci_lower <- round(ci_lower, 2)
+#         ci_upper <- round(ci_upper, 2)
+#         return(sprintf("%.1f (%.1f-%.1f)", m, ci_lower, ci_upper))
+#     }
+# } 
+#### ####
   
-    # Helper function for numeric summary (mean and 95% CI)
   mean_confidence.fun <- function(m, se) {
     m <- m
     se <- se
     ci_lower <- round(m - 1.96 * se, 2)
     ci_upper <- round(m + 1.96 * se, 2)
+    #ci_lower <- m - 1.96 * se
+    #ci_upper <- m + 1.96 * se
      return(sprintf("%.1f (%.1f-%.1f)", m, ci_lower, ci_upper)) # 1 decimal place rounding
   }
+ 
   # make factors
   if( is.null(levels(group)) ){df <- mutate( df, !!(name_g) := factor((!!group)) ) }
 
@@ -526,8 +633,9 @@ continuous.fun <- function(df, var, group, stat_type){
     mutate(na = sum(is.na(!!var))) %>%
     group_by(!!group) %>%
     summarize(median = median((!!var),na.rm = T),
-              mean = mean((!!var),na.rm = T),
+              mean = mean((!!var),na.rm = TRUE),
               se = sd((!!var), na.rm = TRUE) / sqrt(sum(!is.na((!!var)))),
+              sd = sd((!!var), na.rm = TRUE),
               min = min((!!var),na.rm = T),
               max = max((!!var),na.rm = T),
               IQR = IQR((!!var), na.rm = TRUE),
@@ -536,12 +644,15 @@ continuous.fun <- function(df, var, group, stat_type){
               "  - Not available" = sum(is.na(!!var)),
               n = n(),
               .groups = "drop") %>% # d <- d_
-    round.fun() %>%
     # mean(ci), median(icr) or median(range)
-    mutate(percent = round(100 * (`  - Not available` / n))) %>%
+    mutate(percent = 100 * (`  - Not available` / n)) %>%
     mutate("  - Not available" = formatC(.$`  - Not available`, format="d", big.mark = ",")) %>%
+    {. ->> temp} %>%
     {if ({{stat_type}} == "mean_ci") {
       mutate(., {{ var }} := pmap_chr(., ~mean_confidence.fun(..3, ..4)))
+    } else .} %>%
+    {if ({{stat_type}} == "mean_sd") {
+      mutate(., {{ var }} := sprintf("%.1f (%.1f)", mean, sd))
     } else .} %>%
     {if ({{stat_type}} == "median_q1q3") {
       mutate(., {{ var }} := paste0(median, " (", Q1, "-", Q3, ")"))
@@ -549,7 +660,7 @@ continuous.fun <- function(df, var, group, stat_type){
     {if ({{stat_type}} == "median_range") {
       mutate(., {{ var }} := paste0(median, " (", min, "-", max, ")"))
     } else .} %>%
-    
+    round.fun() %>%
     mutate("  - Not available" = paste0(.$`  - Not available`," (",.$percent,"%)")) %>%
     mutate_at(vars(`  - Not available`), str_replace_all, pattern = "^0 \\(0%\\)", replacement = "0") %>%
     select(!!group, !!as_label(var), `  - Not available`) %>%
@@ -601,7 +712,7 @@ sum_table.fun <- function(df, val, group, gr_order, stat_type ) {
     # markdown
   #paste0("**", names(.), "**", "\\\n", "n=(", ., ")") %>%
     # html
-  paste0("<b>", names(.), "</b>", "<br>", "n=(", ., ")") %>%
+  paste0("<b>", names(.), "</b>", "<br>", "(n=", ., ")") %>%
   set_names(., names(count))
   names_n <- names(count) %>% set_names(., count_t)
   
@@ -616,7 +727,7 @@ sum_table.fun <- function(df, val, group, gr_order, stat_type ) {
     select("Variables", any_of(gr_order), "p-value", "na", -t) %>%
     mutate_at(vars("na"), ~ as.character(.)) %>%
     dplyr::rename(!!! names_n) %>%
-    dplyr::rename("**p-value**"=`p-value`, "**na**"='na')
+    dplyr::rename("**p-value**"=`p-value`, "<b>Not available</b>"='na')
 
   #return(list(l_c, l_f, table))
   return(table)
@@ -627,20 +738,164 @@ sum_table.fun <- function(df, val, group, gr_order, stat_type ) {
 
 ```
 
+# Function for creating vs-tables
 
-
-
-
-
-
-## -Table 1 Lifestyle charasteristics
- 
 ```{r}
+
+### Function for calculate difference between percentages of categorical variables ####
+# # for 
+ # group_var <- sym("Period")
+ # df1 %>% select({{group_var}})
+ #  {.->>temp} %>%
+
+# The relative_risk is calculated as the ratio of the percentage in df2 to the percentage in df1. It quantifies how much more (or less) common a category is in df2 compared to df1.
+
+
+ calculate_percentages <- function(df, group_var, vars) {
+  df %>%
+    select({{ group_var }}, all_of(vars)) %>%
+    pivot_longer(cols = -{{ group_var }}, names_to = "Variable", values_to = "Categories") %>%
+    group_by({{ group_var }}, Variable, Categories) %>%
+    summarize(n = n(), .groups = "drop_last") %>%
+    group_by({{ group_var }}, Variable) %>%
+    mutate(sum = sum(n)) %>%
+    ungroup() %>%
+    mutate(percent = 100 * (n / sum)) %>%
+    select(-sum) 
+ }
+
+ 
+  compare_percentages <- function(df1, df2, group_var, vars) {
+    
+  df1_percentages <- calculate_percentages(df1, {{ group_var }}, vars)
+  df2_percentages <- calculate_percentages(df2, {{ group_var }}, vars)
+
+  inner_join(df1_percentages, df2_percentages,
+by = join_by({{ group_var }}, Variable, Categories)) %>%    
+    mutate(percent_diff = percent.x - percent.y) %>%  {.->>temp} %>%
+    #select(-percent.x, -percent.y) %>%
+    rename(Percent_df1 = percent.x, 
+           Percent_df2 = percent.y, 
+           n_df1 = n.x,
+           n_df2 = n.y,
+           Variable = Variable, 
+           Categories = Categories)
+ }
+ 
+  
+
+  
+  
+  ## with if condition
+  calculate_percentages <- function(df, vars, group_var = NULL) {
+  # Check if group_var is provided and is a valid column name
+  if (!is.null(group_var) && group_var %in% names(df)) {
+    # Processing when group_var is provided and valid
+    df %>%
+      select(.data[[group_var]], all_of(vars)) %>%
+      pivot_longer(cols = -all_of(group_var), names_to = "Variable", values_to = "Categories") %>%
+      group_by(.data[[group_var]], Variable, Categories) %>%
+      summarize(n = n(), .groups = "drop_last") %>%
+      group_by(.data[[group_var]], Variable) %>%
+      mutate(sum = sum(n)) %>%
+      ungroup() %>%
+      mutate(percent = 100 * (n / sum)) %>%
+      select(-sum)
+  } else {
+    # Processing when group_var is not provided or not valid
+    df %>%
+      pivot_longer(cols = all_of(vars), names_to = "Variable", values_to = "Categories") %>%
+      count(Variable, Categories) %>%
+      group_by(Variable) %>%
+      mutate(percent = 100 * n / sum(n)) %>%
+      ungroup() 
+  }
+}
+
+ # calculate_percentages(df2, vars = c("AgeGroup", "Sex"), group_var = Period)
+  
+  compare_percentages <- function(df1, df2, group_var, vars) {
+    
+  df1_percentages <- calculate_percentages(df1, vars, group_var)
+  df2_percentages <- calculate_percentages(df2, vars, group_var)
+
+  inner_join(df1_percentages, df2_percentages, by = c("Variable", "Categories", group_var)) %>%    
+    mutate(percent_diff = percent.x - percent.y,
+           relative_risk = percent.y / percent.x) %>%
+    # select(-percent.x, -percent.y) %>%
+    rename(Percent_df1 = percent.x, 
+           Percent_df2 = percent.y, 
+           n_df1 = n.x,
+           n_df2 = n.y,
+           Variable = Variable, 
+           Categories = Categories)
+}
+ 
+  
+  
+  compare_percentages <- function(df1, df2, group_var, vars) {
+    
+  df1_percentages <- calculate_percentages(df1, vars, group_var)
+  df2_percentages <- calculate_percentages(df2, vars, group_var)
+
+  joined_data <- inner_join(df1_percentages, df2_percentages, by = c("Variable", "Categories", group_var)) %>%
+    mutate(
+percent_diff =  percent.y -percent.x,
+           relative_risk = percent.y / percent.x,
+      # Estimate total counts
+      total_df1 = n.x / (percent.x / 100),
+      total_df2 = n.y / (percent.y / 100),
+      # Calculate log of relative risk
+      log_rr = log(relative_risk),
+      # Calculate standard error of log relative risk
+
+      se_log_rr = sqrt((1/n.x - 1/total_df1) + (1/n.y - 1/total_df2))
+    )
+
+  # For a 95% confidence interval
+  z_score <- qnorm(0.975) # Approximately 1.96
+  joined_data %>%
+    mutate(
+      ci_lower = exp(log_rr - z_score * se_log_rr),
+      ci_upper = exp(log_rr + z_score * se_log_rr),
+      rr_with_ci = sprintf("%.2f (%.2f-%.2f)", relative_risk, ci_lower, ci_upper),
+      n_and_percent_df1 = sprintf("%d (%.1f%%)", n.x, percent.x),
+      n_and_percent_df2 = sprintf("%d (%.1f%%)", n.y, percent.y),
+      p_diff = sprintf("%.1f%%", percent_diff)
+    ) %>%
+    select(-log_rr, -se_log_rr, -total_df1, -total_df2) %>%
+    rename(
+      Percent_df1 = percent.x, 
+      Percent_df2 = percent.y, 
+      n_df1 = n.x,
+      n_df2 = n.y,
+      Variable = Variable, 
+      Categories = Categories
+    )
+}
+
+  
+```
+
+
+
+#-------------------------
+# Descriptive tables
+
+
+
+
+## -Table 1. Lifestyle characteristics
+Inte helt färdig men tilltänkt info finns med i tabellen. 
+```{r}
+
+
+    
 val_use <- 
   colnames(
-  df2 %>% select(Age, Sex, HeightCM, WeightKG, BMI, Astrand_rel_VO2, EkB_rel_VO2, 
-                 BloodPressureSystolic, BloodPressureDiastolic, TobaccoSmoking))
-to_char <- c("TobaccoSmoking")
+  df2 %>%
+    select(HeightCM, WeightKG, BMI, EkB_rel_VO2, Astrand_MaxVO2, Astrand_rel_VO2, BMI_cat, astr_cat,TobaccoSmoking, Health, ExerciseAnswer, PhysicalWorkSituation))
+to_char <- c("TobaccoSmoking", "BMI_cat", "astr_cat", "Health", "ExerciseAnswer", "PhysicalWorkSituation")
 
 t1 <- 
 df2 %>% 
@@ -650,19 +905,32 @@ df2 %>%
   sum_table.fun(., 
                 val = val_use,
                 group = Period,
-                stat_type = "mean_ci",
+                stat_type = "mean_sd", # for numerical
                 gr_order =  c("1995-1999", "2000-2004", "2005-2009", "2010-2014", "2015-2019", "2020-2023")) #unique(df2$Period))
 
 
-
+t1  <-
+t1 %>% 
+  mutate(Variables = case_when(
+    Variables == "HeightCM" ~ "Height cm, Mean (SD)",
+    Variables == "WeightKG" ~ "Weight kg, Mean (SD)",
+    Variables == "BMI" ~ "BMI, Mean (SD)",
+    Variables == "astr_cat" ~ "VO2max, n (%)",
+    Variables == "TobaccoSmoking" ~ "Smoking, n (%)",
+    TRUE ~ Variables  
+  ))
 
 # Skapa en DataTable från den sammanfogade datan
+   t1 %>% 
+     mutate(Variables = ifelse(grepl("  -.+|^ $", .$Variables), 
+                            .$Variables, paste0("<b>",.$Variables,"</b>")) ) %>% select( -`**p-value**`) %>% 
 datatable(
-  t1,
+  escape = FALSE,  # to render HTML
   extensions = 'Buttons',
   options = list(
     scrollX = TRUE,
-    pageLength = 25,
+    pageLength = 50,
+    lengthMenu = list(c(5, 10, 30, 50, -1), c('5', '10', '30', '50', 'All')),
     dom = 'Bfrtip',
     buttons = c('copy', 'csv', 'excel'),
     title = "Sammanställd Frekvens av ICD-koder",
@@ -676,11 +944,11 @@ datatable(
   class = "compact" # This class reduces padding/margin in the table
 )
 
-flextable(t1)
+# flextable(t1)
 
 ```
 pander
-```{r}
+```{r eval=FALSE}
 library(pander)
 gr_order =  c("1995-1999", "2000-2004", "2005-2009", "2010-2014", "2015-2019", "2020-2023")
 
@@ -697,38 +965,64 @@ pander(a_, keep.line.breaks = TRUE, split.table = Inf)
   
 ```
 
-## -Table 2  - Sociodemographics
-N och % i var grupp
-
+#-------------------------
   
+# Sociodemographics. 
+
+## -Table 2. Sociodemographics  
+
 ```{r}
+to_char <- c("SSYK1_scb_hpi_combined")
 
 val_use <- 
   colnames(
   df2 %>% select(
-    Sex, AgeGroup, EducationLevel, KommunSize, MarriedOrPartner, BirthPlace
+    Sex, AgeGroup, BirthPlace, MarriedOrPartner, EducationLevel, KommunSize, SSYK1_scb_hpi_combined
     )
   )
 
+
+
 t2 <- df2 %>% 
   select(Period, any_of(val_use)) %>% 
-  # mutate(across(any_of(to_char), ~as.character(.))) %>%
+  mutate(across(any_of(to_char), ~as.character(.))) %>%
   sum_table.fun(., 
                 val = val_use,
                 group = Period,
                 stat_type = "mean_ci",
                 gr_order =  c("1995-1999", "2000-2004", "2005-2009", "2010-2014", "2015-2019", "2020-2023")) #unique(df2$Period))
 
+t2  <-
+t2 %>% 
+  mutate(Variables = case_when(
+    Variables == "AgeGroup" ~ "Age group, n (%)",
+    Variables == "EducationLevel" ~ "Education, n (%)",
+    Variables == "KommunSize" ~ "Municipality, n (%)",
+    Variables == "MarriedOrPartner" ~ "Partner, n (%)",
+    Variables == "BirthPlace" ~ "Nativity, n (%)",
+    Variables == "SSYK1_scb_hpi_combined" ~ "Occupation, major level, n (%)",
+    TRUE ~ Variables  
+  ))
+# df <- df %>%
+#   mutate(column_name = if_else(row_number() >= 20 & row_number() <= 23, 9, column_name))
 
+  t2 %>% 
+     mutate(Variables = ifelse(grepl("  -.+|^ $", .$Variables), 
+                            .$Variables, paste0("<b>",.$Variables,"</b>")) ) %>% 
+    select( -`**p-value**`) %>% 
 datatable(
-  t2,
+  escape = FALSE,  # to render HTML
   extensions = 'Buttons',
   options = list(
     scrollX = TRUE,
-    pageLength = 25,
+    pageLength = 40,
+    lengthMenu = list(c(5, 10, 30, 50, -1), c('5', '10', '30', '50', 'All')),
     dom = 'Bfrtip',
     buttons = c('copy', 'csv', 'excel'),
     title = "Sammanställd Frekvens av ICD-koder",
+        columnDefs = list(
+      list(className = 'dt-body-right', targets = 2:8) # Target columns 2 to 7 -rightalign
+    ),
     initComplete = JS(
       "function(settings, json) {",
       "$(this.api().table().header()).css({'font-size': '10px'});",
@@ -741,16 +1035,248 @@ datatable(
 
 ```
 
+## -Figure 1. Sociodemographics - SCB vs HPI data  
+Percentage point differences for year groups and total  
+**EJ RIKTIG DATA**
 
-## -Table 3 worklife charasteristics
 
-Contractual relationship insecurity
-Directly employed by the employer (0)
-Employed by an agency (-1) Combination of self- and direct employment (-1) Self-employed (-1)
-Solo self-employed (-2)
-Contractual temporariness Stable employment (0) Unstable employment (-2)
-Multiple jobs/economic sectors
-CBA coverage (% likelihood)
+```{r out.width="100%", fig.height=7.5}
+
+
+
+library(statebins)
+library(ggtext)
+library(patchwork)
+library(sysfonts)
+library(showtextdb)
+library(showtext)
+library(ggchicklet)
+# Load fonts --------------------------------------------------------------
+
+font_add_google("Ubuntu", "ubuntu")
+showtext_auto()
+
+bg_col <- "white"
+text_col <- "black"
+body_font <- "ubuntu"
+title_font <- "ubuntu"
+
+
+
+
+
+# Extract the colors from the 'lipari' palette
+# colors <- scico::scico(n = n_colors, palette = 'lipari')
+# n_colors <- 9
+# 
+# c("#364B9A", "#4A7BB7", "#6EA6CD", "#98CAE1", "#C2E4EF", "white", "#FEDA8B", "#FDB366", "#F67E4B", "#DD3D2D", "#A50026")
+# # Print the colors
+# colors
+# "#021326" "#1E4368" "#5C5D78" "#89606E" "#C2655F" "#EA8D6B" "#E6BC91" "#FDF4D9"
+#  "#021326" "#173D60" "#515A79" "#775E72" "#FDF4D9"  "#E6C398" "#E99973" "#D86E5D" "#A36267" 
+#  
+  plot_table <- 
+   compare_percentages(
+  df1 = df2 %>% filter(test_count == 1),
+  df2 = df2 %>% filter(test_count > 1),
+  group_var = "Period",
+  vars =colnames(df2 %>% select(
+    Sex, AgeGroup, BirthPlace, MarriedOrPartner, EducationLevel, KommunSize, IncomeLevel, SSYK_Category
+    )
+)
+)
+
+bins_plot <-
+  ggplot(plot_table %>% mutate(z=scale(percent_diff),
+                        abs = abs(percent_diff)),
+   aes(x = Period, y = Categories, fill = percent_diff)
+   ) +
+  statebins:::geom_rtile(
+    radius = unit(3, "pt"),
+  #  position = position_dodge(1),
+   height =.95, 
+   width = .95
+  ) +
+   geom_text(aes(label = round(percent_diff,1))) +
+  # scico::scale_fill_scico(palette = 'lipari') +
+  # 
+  # scale_fill_gradientn(colors = c(  "#ca9b1a", "#e3b44a", "#f5cc79", "#fae3ac", "#fdf1d6",
+  # "white",
+  # "#c4e2e1", "#88d4d2", "#4bc6c3", "#1ebbbf", "#189a91"),
+  # values = scales::rescale(c(-1, 0, 1))) +
+  
+    scale_fill_gradientn(colors = c( "#173D60", "#515A79" ,"#775E72", "#FDF4D9",  "#E6C398", "#E99973",  "#A36267") ,
+  values = scales::rescale(c(-1, 0, 1))) +
+  scale_x_discrete(labels = c("95-00", "00-05", "05-10", "10-15", "15-20", "20-23", "-23"),
+                   position = "top",
+                   guide = guide_axis(n.dodge = 2)) + 
+  #coord_fixed() +
+  ggforce::facet_col(~Variable, 
+                     scales = 'free_y', 
+                     space = 'free',
+                     strip.position = 'top')+
+  #facet_wrap(~group, ncol = 1, scales = "free_y") +
+  #theme_void(base_size = 32, base_family = "Oficial") +
+
+  theme(
+   # aspect.ratio = .2,
+    
+    legend.position = "bottom",
+    plot.background = element_rect(fill = bg_col, colour = bg_col),
+    panel.background = element_rect(fill = bg_col, colour = bg_col),
+    panel.grid.major = element_blank(), 
+    panel.grid.minor = element_blank(),
+    axis.title = element_blank(),
+    axis.text.y = element_text(colour = text_col,
+                               hjust = 1,
+                               margin = margin(r = 0),
+                               angle=0),
+    axis.text.x = element_text(colour = text_col,
+                               hjust = .5,
+                               margin = margin(r = 0),
+                               angle=0),
+    axis.line.x = element_line(),
+    axis.ticks.x = element_line(),
+    plot.title.position = "plot",
+    plot.caption.position = "plot",
+    strip.text = element_text(face = "bold", color = "grey10", 
+                              size = 10,
+                              hjust = 0,
+                              margin = margin(t = 0, r = 0, b = 0, l = 0)),
+    strip.background = element_rect(fill = "white", color = "white"),
+    plot.margin = margin(t=10, r=-0, b=10, l=0),
+    plot.title = element_textbox_simple(
+      colour = text_col,
+      hjust = 0.5,
+      halign = 0,
+      size = rel(1.8),
+      face = "bold",
+      margin = margin(b = 10, t = 10),
+      lineheight = 0.5#,
+      #family = body_font
+    )
+  )
+
+# marginal plot
+bar_plot_data <- 
+  plot_table %>% group_by(Variable, Categories) %>% 
+  summarise(Value=mean(percent_diff))
+
+bar_plot <- 
+  ggplot(bar_plot_data, 
+         aes(x = Categories, y = Value, fill = Value)) +
+
+  geom_col( position = position_dodge(width = 1),
+                # radius = grid::unit(3, "pt")
+            ) +
+  geom_hline(yintercept = 0, color = "grey") +
+  coord_flip() +
+  
+    scale_fill_gradientn(colors = c(  "#173D60", "#515A79" ,"#775E72", "#FDF4D9",  "#E6C398", "#E99973", "#A36267"), 
+                       values = scales::rescale(c(-1, 0, 1))) +
+   scale_y_continuous(position = "left",
+                    expand = waiver()) + 
+#  theme_void() +
+  labs(title = "Mean difference") +
+   ggforce::facet_col(~Variable, 
+                      scales = 'free_y', 
+                      space = 'free',
+                      strip.position = 'top') + 
+ 
+    theme(
+    plot.margin = margin(t=10, r=-10, b=10, l=10),
+    panel.grid.major = element_blank(), 
+    panel.grid.minor = element_blank(),
+    #axis.ticks.x= element_line(linewidth = 3, color = "black"),
+    axis.ticks.y= element_blank(),
+    axis.line.x = element_line(),
+    axis.text.x = element_text(),
+    axis.title = element_blank(),
+    legend.position = "off",
+    plot.background = element_rect(fill = bg_col, colour = bg_col),
+    panel.background = element_rect(fill = bg_col, colour = bg_col),
+    axis.text.y = element_blank(),
+    plot.title.position = "plot",
+    plot.title = element_text(hjust = 0.5),
+    plot.caption.position = "plot",
+    strip.text = element_text(color = "transparent",
+                                margin = margin(t = 0, r = 0, b = 0, l = 0)),
+    strip.background = element_rect(fill = "white", color = "white")
+    )
+
+# Combine the two plots
+combined_plot <- bins_plot + bar_plot +
+  plot_layout(widths = c(4, 2)) 
+
+# Display the combined plot
+combined_plot
+
+```
+
+
+
+
+## -Table 3. Sociodemographics  
+Relative difference/risk between SCB and HPI data
+
+```{r}
+ rel_diff_table <- 
+   compare_percentages(
+  df1 = df2 %>% filter(test_count == 1),
+  df2 = df2 %>% filter(test_count > 1),
+  group_var = "Period",
+  vars =colnames(df2 %>% select(
+    Sex, AgeGroup, BirthPlace, MarriedOrPartner, EducationLevel, KommunSize, IncomeLevel, SSYK_Category
+    )
+)
+)
+
+
+rel_diff_table %>% 
+  select(Period, Variable,Categories, rr_with_ci) %>% 
+  pivot_wider(names_from=Period,
+              values_from = rr_with_ci) %>% 
+  
+datatable(
+  escape = FALSE,  # to render HTML
+  extensions = 'Buttons',
+  options = list(
+    scrollX = TRUE,
+    pageLength = 40,
+    lengthMenu = list(c(5, 10, 30, 50, -1), c('5', '10', '30', '50', 'All')),
+    dom = 'Bfrtip',
+    buttons = c('copy', 'csv', 'excel'),
+    title = "Sammanställd Frekvens av ICD-koder",
+        columnDefs = list(
+      list(className = 'dt-body-right', targets = 3:8) # Target columns 2 to 7 -rightalign
+    ),
+    initComplete = JS(
+      "function(settings, json) {",
+      "$(this.api().table().header()).css({'font-size': '10px'});",
+      "$(this.api().table().body()).css({'font-size': '10px'});",
+      "}"
+    )
+  ),
+  class = "compact" # This class reduces padding/margin in the table
+)
+ 
+```
+
+
+#-------------------------
+  
+# Worklife characteristics  
+
+## -Table 4. Worklife characteristics  
+
+**Possible additional variables**.  
+Contractual relationship insecurity.  
+Directly employed by the employer (0).  
+Employed by an agency (-1) Combination of self- and direct employment (-1).   Self-employed (-1).  
+Solo self-employed (-2).  
+Contractual temporariness Stable employment (0) Unstable employment (-2).  
+Multiple jobs/economic sectors.  
+CBA coverage (% likelihood).  
 https://isf.se/publikationer/rapporter/2018/2018-09-04-vem-far-avsattningar-till-tjanstepension
 ```{r}
 
@@ -759,12 +1285,10 @@ to_char <- c("SSYK1_scb_hpi_combined")
 val_use <- 
   colnames(
   df2 %>% select(
-    IncomeLevel, SSYK_Category, SSYK1_scb_hpi_combined
+    IncomeLevel, SNI 
     ) 
     )
   
-df2 %>% count(IncomeLevel)
-
 
 t3 <- df2 %>% 
   select(Period, any_of(val_use)) %>% 
@@ -777,21 +1301,35 @@ t3 <- df2 %>%
                 gr_order =  c("1995-1999", "2000-2004", "2005-2009", "2010-2014", "2015-2019", "2020-2023")) #unique(df2$Period))
 
 
-
+t3  <-
+t3 %>% 
+  mutate(Variables = case_when(
+    Variables == "IncomeLevel" ~ "Percentage of median income, n (%)",
+    Variables == "SSYK1_scb_hpi_combined" ~ "Occupation, major level, n (%)",
+    TRUE ~ Variables  
+  ))
 
 
 
 
 # Skapa en DataTable från den sammanfogade datan
+t3 %>% 
+mutate(Variables = ifelse(grepl("  -.+|^ $", .$Variables), 
+      .$Variables, paste0("<b>",.$Variables,"</b>")) ) %>% 
+  select( -`**p-value**`) %>% 
 datatable(
-  t3,
+  escape = FALSE,  # to render HTML
   extensions = 'Buttons',
   options = list(
     scrollX = TRUE,
-    pageLength = 25,
+     pageLength = 30,
+    lengthMenu = list(c(5, 10, 30, 50, -1), c('5', '10', '30', '50', 'All')),
     dom = 'Bfrtip',
     buttons = c('copy', 'csv', 'excel'),
     title = "Sammanställd Frekvens av ICD-koder",
+      columnDefs = list(
+      list(className = 'dt-body-right', targets = 2:8) # Target columns 2 to 7 -rightalign
+    ),
     initComplete = JS(
       "function(settings, json) {",
       "$(this.api().table().header()).css({'font-size': '10px'});",
@@ -805,35 +1343,259 @@ datatable(
 ```
 
 
+## -Figure 2. Worklife characteristics - SCB vs HPI  
+
+Percentage point differences for year groups and total  
+EJ RIKTIG DATA
+
+```{r out.width="100%", fig.height=7.5}
+combined_plot
+```
+
+## -Table 5. Worklife characteristics
+Relative difference/risk between SCB and HPI data
 
 
-#-------------------------
-# HPI vs SCB data
 
-## -Table xx
 
 ```{r}
+ rel_diff_table <- 
+   compare_percentages(
+  df1 = df2 %>% filter(test_count == 1),
+  df2 = df2 %>% filter(test_count > 1),
+  group_var = "Period",
+  vars =colnames(df2 %>% select(
+    IncomeLevel, SNI 
+    )
+)
+)
+
+
+rel_diff_table %>% 
+  select(Period, Variable,Categories, rr_with_ci) %>% 
+  pivot_wider(names_from=Period,
+              values_from = rr_with_ci) %>% 
+  
+datatable(
+  escape = FALSE,  # to render HTML
+  extensions = 'Buttons',
+  options = list(
+    scrollX = TRUE,
+    pageLength = 40,
+    lengthMenu = list(c(5, 10, 30, 50, -1), c('5', '10', '30', '50', 'All')),
+    dom = 'Bfrtip',
+    buttons = c('copy', 'csv', 'excel'),
+    title = "Sammanställd Frekvens av ICD-koder",
+        columnDefs = list(
+      list(className = 'dt-body-right', targets = 3:8) # Target columns 2 to 7 -rightalign
+    ),
+    initComplete = JS(
+      "function(settings, json) {",
+      "$(this.api().table().header()).css({'font-size': '10px'});",
+      "$(this.api().table().body()).css({'font-size': '10px'});",
+      "}"
+    )
+  ),
+  class = "compact" # This class reduces padding/margin in the table
+)
+```
+
+#-------------------------
+
+
+# 20 most underrepresented/overrepresented groups
+
+Saknas data, vilka variabler är viktiga? yrke, kön, och ålder, privat/ej privat?
+
+Sex,  age, occupation, privat/not private, country of birth
+year period,education level, SSYK, sector, storlek på företag, region/municipality, country of birth, ekonomiskt resultat företag
+
+## -Figure 3, waiting for SCB data
+
+Hierarchical Clustering
+```{r out.width="100%", fig.height=7.5}
+
+library(tidyclust)
+kmeans_spec <- k_means(num_clusters = 3) %>%
+  set_engine("stats")
+
+ kmeans_spec %>%
+  fit(~., data = mtcars)
+
+ 
+ d <-
+plot_table %>% select(Period, Variable,Categories, percent_diff)%>%group_by(Variable, Categories) %>%  summarise(percent_diff=mean(percent_diff)) #%>% 
+   # pivot_wider(names_from = Categories, values_from = percent_diff) %>% 
+  print(n=44)
+
+
+
+
+
+
+library(cluster)
+# Assuming your data is in a dataframe called df
+# Calculate the Gower distance matrix
+gower_dist <- cluster::daisy(d[, c('Variable', 'Categories')], metric = "gower")
+
+# Perform hierarchical clustering
+hclust_res <- hclust(gower_dist, method = "ward.D2")
+
+# Plot the dendrogram
+plot(hclust_res)
+
+
+
+library(ggdendro)
+df   <- USArrests 
+labs <- paste("veryverylongtitlename",1:50,sep="")
+rownames(df) <- labs
+
+
+
+hc       <- hclust(dist(df), "ave")           # heirarchal clustering
+dendr    <- dendro_data(hc, type="rectangle") # convert for ggplot
+clust    <- cutree(hc,k=2)                    # find 2 clusters
+clust.df <- data.frame(label=names(clust), cluster=factor(clust))
+# dendr[["labels"]] has the labels, merge with clust.df based on 
+# label column
+dendr[["labels"]] <- merge(dendr[["labels"]],clust.df, by="label")
+# plot the dendrogram; note use of color=cluster in geom_text(...)
+ggplot() + 
+  geom_segment(data=segment(dendr), aes(x=x, y=y, xend=xend, 
+yend=yend)) + 
+  geom_text(data=label(dendr), aes(x, y, label=label, hjust=0, color=cluster), 
+       size=3) +
+  coord_flip() + scale_y_reverse(expand=c(0.2, 0)) + 
+  theme(axis.line.y=element_blank(),
+    axis.ticks.y=element_blank(),
+    axis.text.y=element_blank(),
+    axis.title.y=element_blank(),
+    panel.background=element_rect(fill="white"),
+    panel.grid=element_blank())
+
+```
+#-------------------------
+
+
+# 1st vs 2ond test
+percentage point difference and relative risk
+
+
+## -Table 6. Difference between those with one test vs those with 2 or more tests at their first test.
+```{r}
+ result_table <- 
+   compare_percentages(
+  df1 = df2 %>% filter(test_count == 1),
+  df2 = df2 %>% filter(test_count > 1),
+  group_var = NULL,
+  vars =colnames(df2 %>% select(
+    Sex, AgeGroup, BirthPlace, MarriedOrPartner, EducationLevel, KommunSize, IncomeLevel, SNI
+    )
+)
+)
+
+
+ result_table %>% select(Variable, Categories, n_and_percent_df1, n_and_percent_df2, p_diff, rr_with_ci) %>% 
+   mutate(across(where(is.numeric), round,1)) %>% 
+datatable(
+  escape = FALSE,  # to render HTML
+  extensions = 'Buttons',
+  options = list(
+    scrollX = TRUE,
+     pageLength = 62,
+    lengthMenu = list(c(5, 10, 30, 50, -1), c('5', '10', '30', '50', 'All')),
+    dom = 'Bfrtip',
+    buttons = c('copy', 'csv', 'excel'),
+    title = "Sammanställd Frekvens av ICD-koder",
+      columnDefs = list(
+      list(className = 'dt-body-right', targets = 3:6) # Target columns 2 to 7 -rightalign
+    ),
+    initComplete = JS(
+      "function(settings, json) {",
+      "$(this.api().table().header()).css({'font-size': '10px'});",
+      "$(this.api().table().body()).css({'font-size': '10px'});",
+      "}"
+    )
+  ),
+  class = "compact" # This class reduces padding/margin in the table
+)
+
+ 
+ 
+
+   
+```
+
+
+
+```{r}
+
+
+
+
+ result_table2 <- 
+   compare_percentages(
+  df1 = df2 %>% filter(test_count == 1)%>% 
+  mutate(across(where(is.double), as.character)),
+  df2 = df2 %>% filter(test_count > 1)%>% 
+  mutate(across(where(is.double), as.character)),
+  group_var = NULL,
+vars = colnames(df2 %>% 
+   select(BMI_cat, astr_cat,TobaccoSmoking, Health, ExerciseAnswer, PhysicalWorkSituation) %>% 
+  mutate(across(where(is.double), as.character)))
+)
+
+result_table2%>% select(Variable, Categories, n_and_percent_df1, n_and_percent_df2, p_diff, rr_with_ci) %>% 
+   mutate(across(where(is.numeric), round,1)) %>% 
+datatable(
+  escape = FALSE,  # to render HTML
+  extensions = 'Buttons',
+  options = list(
+    scrollX = TRUE,
+     pageLength = 62,
+    lengthMenu = list(c(5, 10, 30, 50, -1), c('5', '10', '30', '50', 'All')),
+    dom = 'Bfrtip',
+    buttons = c('copy', 'csv', 'excel'),
+    title = "Sammanställd Frekvens av ICD-koder",
+      columnDefs = list(
+      list(className = 'dt-body-right', targets = 3:6) # Target columns 2 to 7 -rightalign
+    ),
+    initComplete = JS(
+      "function(settings, json) {",
+      "$(this.api().table().header()).css({'font-size': '10px'});",
+      "$(this.api().table().body()).css({'font-size': '10px'});",
+      "}"
+    )
+  ),
+  class = "compact" # This class reduces padding/margin in the table
+)
 
 ```
 
 
-## -Figure xx
+KAN även visas i graf form, men kanske räcker med en tabell för detta.
 
 
-#-------------------------
-# 30 most underrepresented/overrepresented groups
-
-```{r}
-
+```{r out.width="100%", fig.height=7.5}
+result_table %>% 
+     ggplot(aes(x=percent_diff, y = Categories)) +
+     geom_ribbon(aes(ymin = -Inf, ymax = Inf, xmin = -5, xmax = 5), fill = "pink", alpha = 1) +
+     geom_vline(xintercept = 0, color = "grey") +
+     geom_col(fill="lightblue") +
+     xlim(c(-15,15))+
+     geom_text(aes(x=12,label = n_df2), hjust=1) +
+     geom_text(aes(x=-10,label = n_df1), hjust=1) +
+     facet_wrap(~ Variable, scales = "free_y", ncol = 1) +
+     labs(title = "those with one test vs those with two tests, those with only one test have higer % women") +
+     theme_minimal() +
+     theme(legend.position = "bottom")
 ```
 
 
-## -Figure xx
-```{r}
-
-```
-
 #-------------------------
+
+
 # other stuff not included in paper
 
 ## Income graph
@@ -865,3 +1627,35 @@ df1 %>%
   labs(y = "CSFVI (log scale)", x = "Period")
 
 ```
+
+
+
+* Uppgift saknas
+1 Förgymnasial utbildning kortare än 9 år
+2 Förgymnasial utbildning 9 år
+3 Gymnasial utbildning högst 2-årig
+4 Gymnasial utbildning 3 år
+5 Eftergymnasial utbildning kortare än 3 år
+6 Eftergymnasial utbildning 3 år eller längre (exkl. forskarutbildning)
+7 Forskarutbildning 
+
+
+High-Skilled Group:  
+Managers and Administrators
+Professionals (e.g., healthcare, education, IT)
+Technicians and Associate Professionals
+This group encompasses roles that typically require advanced education, specialized skills, and a high level of expertise.
+
+Skilled Manual (Blue Collar) Group:  
+Skilled Agricultural, Forestry, and Fishery Workers
+Craft and Related Trades Workers
+Plant and Machine Operators, and Assemblers
+Jobs in this group generally require specific vocational skills or training, often involving manual labor or technical expertise.  
+
+
+Clerical and Service Workers Group (Clerical Support Workers,   
+Service and Sales Workers):  
+This group covers roles primarily in the service sector, including both office-based clerical jobs and customer-facing service roles. These occupations may require certain levels of training and skills, but not to the extent of the high-skilled group.
+
+Elementary Occupations:    
+This group includes occupations that usually perform simple and routine tasks, which may require the use of hand-held tools and physical effort. These roles often do not require formal educational credentials or specialized training. 
