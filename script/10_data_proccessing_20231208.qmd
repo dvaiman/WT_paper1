@@ -16,9 +16,9 @@ editor:
   markdown: 
     wrap: sentence
 toc: true
-toc-depth: 2
+toc-depth: 3
 toc-location: left
-toc-expand: true
+toc-expand: false
 execute: 
   warning: false
   echo: true
@@ -30,8 +30,17 @@ theme:
 ---
 # Project description
 
-Paper 1 in work project 1 of the work together series
+Paper 1 in work project 1 of the work together series.  
+  
+The aim of this study was to investigate the reach, defined as the proportion of the target population that participated in the programme, of a nation-wide OHSP that has included Swedish workers for almost 30 years, both in terms of individual and organizational characteristics, and how the reach has changed over the years. A second aim was to identify under- and overrepresented groups. 
+  
+  
+The following is a suggested layout of the study results.  
 
+
+
+
+::: {.content-hidden when-format="html"}
 #-------------------------
 ## Libraries
 
@@ -45,6 +54,9 @@ xfun::pkg_attach(
   )
 
 ```
+
+
+
 #-------------------------
 ## Base theme
 
@@ -68,7 +80,10 @@ xfun::pkg_attach(
 
 ```
 
+
+
 #-------------------------
+
 ## Data
 
 ```{r}
@@ -77,6 +92,15 @@ hpa <- read_csv(here::here("..", "..","..", "HPI (DNR XXXXXX)", "Data HPI regist
 
 scb <- read_csv(here::here("..", "..","..", "HPI (DNR XXXXXX)", "Data HPI registeruttag 2023", "SCB", "SCB clean", "Grunduppgifter_2023-09-24.csv")) %>% mutate(Kommun=str_replace(Kommun, "^0+", ""))# remove leading zeros
 
+
+
+
+
+
+
+
+
+
 # join SCB and HPI data
 df <- hpa %>% inner_join(scb, by = join_by(LopNr, Performed, Year))  %>% 
     mutate(SSYK1_scb_hpi_combined = coalesce(SSYK1, Ssyk1_hpi_combined))
@@ -84,8 +108,10 @@ df <- hpa %>% inner_join(scb, by = join_by(LopNr, Performed, Year))  %>%
 ```
 
 
+
+
 # Selection
-different n depending on different selection criterias
+
 ```{r, eval=FALSE}
 
 # Assuming 'hpa' is your original data frame
@@ -161,9 +187,10 @@ sums %>%
 
 
 
-  
 # Variable creation
-d <-pxweb:: pxweb_interactive()
+:::
+  
+
 ```{r}
 # data from tillväxtverket, another possibility could be skr
 metropolitan_municipalities <- c("114", "123", "126", "127", "128", "136", "138", "139", "160", 
@@ -278,19 +305,19 @@ SSYK_Category = case_when(
     SSYK1_scb_hpi_combined %in% 6:8 ~ "Skilled Manual",        # Skilled manual or blue-collar group
     SSYK1_scb_hpi_combined == 9 ~ "Elementary Occupations"                   # Elementary occupations group
 ),
-SSYK1_scb_hpi_combined = case_when(
-    SSYK1_scb_hpi_combined == "0" ~ "Armed forces occupations",
-    SSYK1_scb_hpi_combined == "1" ~ "Managers",
-    SSYK1_scb_hpi_combined == "2" ~ "Occupations requiring advanced level of higher education",
-    SSYK1_scb_hpi_combined == "3" ~ "Occupations requiring higher education qualifications or equivalent",
-    SSYK1_scb_hpi_combined == "4" ~ "Administration and customer service clerks",
-    SSYK1_scb_hpi_combined == "5" ~ "Service, care and shop sales workers",
-    SSYK1_scb_hpi_combined == "6" ~ "Agricultural, horticultural, forestry and fishery workers",
-    SSYK1_scb_hpi_combined == "7" ~ "Building and manufacturing workers",
-    SSYK1_scb_hpi_combined == "8" ~ "Mechanical manufacturing and transport workers, etc.",
-    SSYK1_scb_hpi_combined == "9" ~ "Elementary occupations",
-    TRUE ~ SSYK1_scb_hpi_combined # Keeps the original value if none of the above conditions are met
+SSYK1_scb_hpi_combined_char = case_when(
+    SSYK1_scb_hpi_combined == 0 ~ "Armed forces occupations",
+    SSYK1_scb_hpi_combined == 1 ~ "Managers",
+    SSYK1_scb_hpi_combined == 2 ~ "Occupations requiring advanced level of higher education",
+    SSYK1_scb_hpi_combined == 3 ~ "Occupations requiring higher education qualifications or equivalent",
+    SSYK1_scb_hpi_combined == 4 ~ "Administration and customer service clerks",
+    SSYK1_scb_hpi_combined == 5 ~ "Service, care and shop sales workers",
+    SSYK1_scb_hpi_combined == 6 ~ "Agricultural, horticultural, forestry and fishery workers",
+    SSYK1_scb_hpi_combined == 7 ~ "Building and manufacturing workers",
+    SSYK1_scb_hpi_combined == 8 ~ "Mechanical manufacturing and transport workers, etc.",
+    SSYK1_scb_hpi_combined == 9 ~ "Elementary occupations"
   ),
+SNI = substr(IndustryCodeTopSNI2007, 1, 1),
 SNI = case_when(
     SNI == "A" ~ "Agriculture, forestry and fishing",
     SNI == "B" ~ "Mining and quarrying",
@@ -315,11 +342,37 @@ SNI = case_when(
     SNI == "U" ~ "Activities of extraterritorial organisations and bodies",
     TRUE ~ SNI # Keeps the original value if none of the above conditions are met
   ),
-BMI_cat = case_when(BMI > 25 & BMI < 30 ~ ">25",
-                    BMI > 30 ~ ">30",
-TRUE ~ "<=25"),
-astr_cat = if_else(Astrand_rel_VO2 > 32, ">32", "<32"),
-SNI = substr(IndustryCodeTopSNI2007, 1, 1)
+BMI_cat = case_when(BMI >= 25 & BMI < 30 ~ "25-30",
+                    BMI >= 30 ~ "≥30",
+TRUE ~ "≤25"),
+astr_cat = if_else(Astrand_rel_VO2 > 32, "≥32", "<32"),
+ExerciseDi = case_when(
+    ExerciseAnswer %in% 1 ~ "Never",   
+    ExerciseAnswer %in% 2 ~ "Seldom",   
+    ExerciseAnswer %in% 3:5 ~ "Weekly"
+    ),
+TobaccoSmokingDi = case_when(
+    TobaccoSmoking %in% 1:3 ~ "Daily",    
+    TobaccoSmoking %in% 4 ~ "Seldom", 
+    TobaccoSmoking %in% 5 ~ "Never" 
+    ),
+HealthDi = case_when(
+    Health %in% 1:2 ~ "Poor",             
+    Health %in% 3 ~ "Neutral",   
+    Health %in% 4 ~ "Good" 
+    ),
+PhysicalWorkSituation = case_when(
+      PhysicalWorkSituation == "Periodvis fysiskt krävande arbete" ~ "Occasionally physically demanding work",
+      PhysicalWorkSituation == "Periodvis mycket fysiskt krävande arbete" ~ "Occasionally highly physically demanding work",
+      PhysicalWorkSituation == "Rörligt arbete" ~ "Physically active work",
+      PhysicalWorkSituation == "Stillasittande med inslag av rörligt arbete" ~ "Sedentary work with elements of mobility",
+      TRUE ~ PhysicalWorkSituation # keeps original value if none of the above conditions are met
+    ),
+PhysicalWorkSituationDi = case_when(
+    PhysicalWorkSituation %in% c("Occasionally physically demanding work", "Occasionally highly physically demanding work") ~ "Physically demanding work",             
+    PhysicalWorkSituation %in% "Physically active work" ~ "Physically active work",   
+    PhysicalWorkSituation %in% "Sedentary work with elements of activity" ~ "Sedentary work" 
+    ),
  ) %>% 
   # factors
    mutate(
@@ -341,7 +394,7 @@ SNI = substr(IndustryCodeTopSNI2007, 1, 1)
         SSYK_Category =
       factor(SSYK_Category,
              levels = c("High-Skilled", "Skilled Manual", "Clerical and Service Workers", "Elementary Occupations")),
-    factor(SSYK1_scb_hpi_combined, levels = c(
+   SSYK1_scb_hpi_combined_char = factor(SSYK1_scb_hpi_combined_char, levels = c(
     "Armed forces occupations",
     "Managers",
     "Occupations requiring advanced level of higher education",
@@ -375,14 +428,28 @@ SNI = substr(IndustryCodeTopSNI2007, 1, 1)
     "Other service activities",
     "Activities of households as employers; undifferentiated goods- and services-producing activities of households for own use",
     "Activities of extraterritorial organisations and bodies"
-  ))
+  )),
+          TobaccoSmokingDi = 
+      factor(TobaccoSmokingDi, 
+             levels = c("Never", "Seldom", "Daily")),
+        ExerciseDi = 
+      factor(ExerciseDi, 
+             levels = c("Weekly", "Seldom", "Never")),
+            HealthDi = 
+      factor(HealthDi, 
+             levels = c("Good", "Neutral", "Poor")),
+              PhysicalWorkSituationDi = 
+      factor(PhysicalWorkSituationDi, 
+             levels = c("Sedentary work", "Physically active work", "Physically demanding work"))
   )
   
 
 ```
 
-# Flowchart and data in/ex-clusion
-
+# Data driven flowchart of data in/ex-clusion  
+Could be a possible figure 1 or appendix figure.   
+  
+**questionnaire 2 physilogical 2** = 2 out of physiological tests (EkB_rel_VO2, Astrand_rel_VO2, HeightCM, WeightKG, BloodPressureSystolic, BloodPressureDiastolic) AND 2 out of the most answered questionnaire variables (ExerciseAnswer, TobaccoSmoking, Diet, Health, StressOverall, SymptomBackNeck) is required to be in this manuscript.
 ```{r}
 
 # global options for dtrackr
@@ -424,7 +491,7 @@ df1 |>
   filter(hpa_number == 1,
          .messages = "Excluded {formatC(.excluded, big.mark = ',',format = 'fg')}", .headline = "Repeated tests") %>% 
  # status() %>% 
-  group_by(test_count>1,) %>% 
+  group_by(test_count>1, .headline = "Stratified by if having 1 or more tests  ") %>% 
   comment(" has {formatC(.count, big.mark = ',')} items") %>%
   ungroup(.headline = "Total study population\nn={formatC(.count, big.mark = ',')}",
           .messages = "") 
@@ -443,17 +510,26 @@ df2 <- df2 %>% as_tibble()
 
 ```
 
-#-------------------------
+
+
+::: {.content-hidden when-format="html"}
+# -------------------------
 
 # Function for creating table 1
-sum_table.fun(df, val, group, gr_order, stat_type)
+:::
 
-df- data frame.  
-val- vector of character names c("xx","xxx").   
-group- grouping variable.  
-gr_order-order of the grouping variable options.  
-stat_type-uncertainty-for continuous vars, options: mean_ci, mean_sd, median_q1q3, median_range.   
 ```{r Table functions}
+
+# Settings
+# sum_table.fun(df, val, group, gr_order, stat_type)
+
+# df- data frame.  
+# val- vector of character names c("xx","xxx").   
+# group- grouping variable.  
+# gr_order-order of the grouping variable options.  
+# stat_type-uncertainty-for continuous vars, options: mean_ci, mean_sd, median_q1q3, median_range.   
+
+
 # test statistics
 # continuous multi group: anova/Kruskal  (parametric/non-parametric)
 # continuous one or two group: t-test/Man-Whitney U (parametric/non-parametric)
@@ -738,8 +814,13 @@ sum_table.fun <- function(df, val, group, gr_order, stat_type ) {
 
 ```
 
+
+::: {.content-hidden when-format="html"}
 # Function for creating vs-tables
 
+# -------------------------
+
+:::
 ```{r}
 
 ### Function for calculate difference between percentages of categorical variables ####
@@ -879,14 +960,10 @@ percent_diff =  percent.y -percent.x,
 
 
 
-#-------------------------
-# Descriptive tables
 
 
-
-
-## -Table 1. Lifestyle characteristics
-Inte helt färdig men tilltänkt info finns med i tabellen. 
+# -Table 1. Lifestyle characteristics
+Table 1 is to describe the study population. These variables will not be used anywhere else in this manuscript. However it shows the percentage missing in the different variables. 
 ```{r}
 
 
@@ -894,8 +971,8 @@ Inte helt färdig men tilltänkt info finns med i tabellen.
 val_use <- 
   colnames(
   df2 %>%
-    select(HeightCM, WeightKG, BMI, EkB_rel_VO2, Astrand_MaxVO2, Astrand_rel_VO2, BMI_cat, astr_cat,TobaccoSmoking, Health, ExerciseAnswer, PhysicalWorkSituation))
-to_char <- c("TobaccoSmoking", "BMI_cat", "astr_cat", "Health", "ExerciseAnswer", "PhysicalWorkSituation")
+    select(HeightCM, WeightKG, BMI, BMI_cat, Astrand_MaxVO2, Astrand_rel_VO2, astr_cat,TobaccoSmokingDi, HealthDi, ExerciseDi, PhysicalWorkSituationDi))
+to_char <- c("TobaccoSmoking", "BMI_cat", "astr_cat")
 
 t1 <- 
 df2 %>% 
@@ -915,10 +992,37 @@ t1 %>%
     Variables == "HeightCM" ~ "Height cm, Mean (SD)",
     Variables == "WeightKG" ~ "Weight kg, Mean (SD)",
     Variables == "BMI" ~ "BMI, Mean (SD)",
-    Variables == "astr_cat" ~ "VO2max, n (%)",
-    Variables == "TobaccoSmoking" ~ "Smoking, n (%)",
+    Variables == "BMI_cat" ~ "BMI, n (%)",
+  #  Variables == "EkB_rel_VO2" ~ "Estimated relative VO2max by the Ekblom Bak test, Mean (SD)",
+    Variables == "Astrand_rel_VO2" ~ "Estimated relative VO2max, Mean (SD)",
+    Variables == "Astrand_MaxVO2" ~ "Estimated absolute VO2max, Mean (SD)",
+    Variables == "astr_cat" ~ "VO2max Åstrand, n (%)",
+    Variables == "TobaccoSmokingDi" ~ "Smoking, n (%)",
+    Variables == "PhysicalWorkSituationDi" ~ "Physical work situation, n (%)",
+    Variables == "ExerciseDi" ~ "Exercise, n (%)",
+    Variables == "HealthDi" ~ "Perceived Health, n (%)",
     TRUE ~ Variables  
-  ))
+  )) %>% 
+slice(
+    # Basic physical measurements
+    1, 2,  # Height
+    3, 4,  # Weight
+    5, 6,  # BMI
+    13, 14, 15, 16, # BMI categories
+
+    # Lifestyle factors
+    31, 32, 33, 34, 35, # Exercise frequency
+    21, 22, 23, 24, 25, # Smoking
+    36, 37, 38, 39, 40,  # Physical work situation
+
+    # Health indicators
+    7, 8,  # Estimated VO2max relative EB
+    9, 10, # Estimated VO2max absolute Å
+    11, 12,# Estimated VO2max relative Å
+    17, 18, 19, 20, # VO2max categories (Åstrand)
+    26, 27, 28, 29, 30 # General health
+)
+
 
 # Skapa en DataTable från den sammanfogade datan
    t1 %>% 
@@ -947,37 +1051,21 @@ datatable(
 # flextable(t1)
 
 ```
-pander
-```{r eval=FALSE}
-library(pander)
-gr_order =  c("1995-1999", "2000-2004", "2005-2009", "2010-2014", "2015-2019", "2020-2023")
 
-s <- c(" ", rep(c("mean (CI)"), times=length(gr_order)), NA, NA) %>% set_names(., colnames(t1))
-
-a_ <- bind_rows(s, t1) %>% 
-  mutate(Variables = ifelse(grepl("  -.+|^ $", .$Variables), 
-                            .$Variables, paste0("**",.$Variables,"**")) ) #%>%
-  #select(-`**na**`, -`**p-value**`) #%>%
-  #column_to_rownames(var = "Variables")
-
-pander(a_, keep.line.breaks = TRUE, split.table = Inf) 
-
-  
-```
 
 #-------------------------
   
-# Sociodemographics. 
+# Sociodemographics  
 
-## -Table 2. Sociodemographics  
-
+# -Table 2. Sociodemographics  
+Sociodemographic variables at the time of the HPI test are displayed as percentages across various groupings, serving both to characterize the study population and to lay the groundwork for subsequent analyses. These percentages will be further examined in comparison with SCB data in the upcoming figure and table.
 ```{r}
 to_char <- c("SSYK1_scb_hpi_combined")
 
 val_use <- 
   colnames(
   df2 %>% select(
-    Sex, AgeGroup, BirthPlace, MarriedOrPartner, EducationLevel, KommunSize, SSYK1_scb_hpi_combined
+    Sex, AgeGroup, BirthPlace, MarriedOrPartner, EducationLevel, KommunSize, SSYK1_scb_hpi_combined_char
     )
   )
 
@@ -1000,11 +1088,21 @@ t2 %>%
     Variables == "KommunSize" ~ "Municipality, n (%)",
     Variables == "MarriedOrPartner" ~ "Partner, n (%)",
     Variables == "BirthPlace" ~ "Nativity, n (%)",
-    Variables == "SSYK1_scb_hpi_combined" ~ "Occupation, major level, n (%)",
+    Variables == "SSYK1_scb_hpi_combined_char" ~ "Occupation, major level, n (%)",
     TRUE ~ Variables  
-  ))
+  )) %>%
+  slice(
+    1, 2, 3, # Sex
+    4, 5, 6, 7, 8, # Age group
+    9, 10, 11, 12, 13, # Nativity
+    14, 15, 16, 17, # Partner status
+    18, 19, 20, 21, 22, 23, # Education
+    24, 25, 26, 27, 28, # Municipality type
+    29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40 # SSYK1_scb_health
+  )
 # df <- df %>%
 #   mutate(column_name = if_else(row_number() >= 20 & row_number() <= 23, 9, column_name))
+
 
   t2 %>% 
      mutate(Variables = ifelse(grepl("  -.+|^ $", .$Variables), 
@@ -1035,12 +1133,16 @@ datatable(
 
 ```
 
-## -Figure 1. Sociodemographics - SCB vs HPI data  
-Percentage point differences for year groups and total  
-**EJ RIKTIG DATA**
+# -Figure 1. Sociodemographics - SCB vs HPI data  
+Figure shows percentage point differences for year groups and total in different sociodemographic categories. THe figure is not in its final form, more of a concept image that will be improved. 
 
 
-```{r out.width="100%", fig.height=7.5}
+
+
+<span style="color:red;">**EJ RIKTIG DATA** väntar fortfarande på jämförelsedata från SCB. Exempeldata.</span> R.
+
+
+```{r out.width="90%", fig.height=7}
 
 
 
@@ -1216,9 +1318,10 @@ combined_plot
 
 
 
-## -Table 3. Sociodemographics  
-Relative difference/risk between SCB and HPI data
-
+# -Table 3. Sociodemographics  
+Table shows relative difference/risk between SCB and HPI data in different sociodemographic categories.  
+ 
+<span style="color:red;">**EJ RIKTIG DATA** väntar fortfarande på jämförelsedata från SCB. Exempeldata.</span>
 ```{r}
  rel_diff_table <- 
    compare_percentages(
@@ -1266,18 +1369,113 @@ datatable(
 #-------------------------
   
 # Worklife characteristics  
+This part is missing a lot of data as we are waiting for register data from statistics Sweden. However it is meant that it should follow same pattern as the presentation of socioeconomic data above. below we will present some possible aggregations of the long awaited SCB data. The categorization is up to discussion.  
 
-## -Table 4. Worklife characteristics  
 
-**Possible additional variables**.  
-Contractual relationship insecurity.  
-Directly employed by the employer (0).  
-Employed by an agency (-1) Combination of self- and direct employment (-1).   Self-employed (-1).  
-Solo self-employed (-2).  
-Contractual temporariness Stable employment (0) Unstable employment (-2).  
-Multiple jobs/economic sectors.  
-CBA coverage (% likelihood).  
-https://isf.se/publikationer/rapporter/2018/2018-09-04-vem-far-avsattningar-till-tjanstepension
+
+# -Table 4. Worklife characteristics  
+
+
+
+```{r}
+library(tidyverse)
+
+# Define the row names including categories and subcategories
+row_names <- c(
+  "<b>Ownership sector (SNI)</b>",
+  "1. Private",
+  "2. Public",
+  "<b>Economic sector (SNI)</b>",
+  "1. Electricity, Gas, Steam and Air Conditioning Supply; Water Supply; Sewerage, Waste Management and Remediation Activities",
+  "2. Agriculture, Forestry and Fishing",
+  "3. Mining and Quarrying; Manufacturing",
+  "4. Construction",
+  "5. Wholesale and Retail Trade",
+  "6. Transportation and Storage",
+  "7. Accommodation and Food Service Activities",
+  "8. Information and Communication",
+  "9. Financial and Insurance Activities",
+  "10. Real Estate Activities",
+  "11. Professional, Scientific and Technical Activities; Administrative and Support Service Activities",
+  "12. Public Administration and Defence",
+  "13. Education",
+  "14. Human Health and Social Work Activities",
+  "15. Arts, Entertainment and Recreation; Other service activities",
+  "<b>Number of employees in the company</b>",
+  "Micro-Enterprises: 1-9 employees",
+  "Small Enterprises: 10-49 employees",
+  "Medium-Sized Enterprises: 50-249 employees",
+  "Large Enterprises: 250+ employees",
+  "<b>Multiple jobs/ economic sectors</b>",
+  "1. ≥2 jobs in >1 sector",
+  "2. ≥2 jobs",
+  "3. 1 job",
+  "<b>Staff Turnover Rate (%)</b> (PersOms_Harledd / Ast_AntalSys) only one row of data",
+  "<b>Contractual relationship insecurity</b>",
+  "1. Solo self-employed",
+  "2. Self- and direct employment / Self-employed / Agency employed",
+  "3. Directly employed",
+  "<b>Contractual temporariness</b>",
+  "1. Stable employment, Having the same employer for 3 years",
+  "2. Unstable employment, Having the same employer for <3 years",
+  "<b>Net sales % of median</b>",
+  "≥200%",
+  "120–199%",
+  "80–119%",
+  "60–79%",
+  "<60%",
+  "<b>Operating Profit</b>",
+  "≥200%",
+  "120–199%",
+  "80–119%",
+  "60–79%",
+  "<60%",
+  "<b>Operating Margin</b> (operating profit/revenue)x100",
+  "<b>Collective bargaining agreement coverage (%)</b>"
+)
+
+# Define the column names
+column_names <- c("1995-1999", "2000-2004", "2005-2009", "2010-2014", "2015-2019", "2020-2023")
+
+# Create an empty dataframe
+empty_df <- tibble(Characteristic = row_names)
+
+# Add empty columns for the time periods
+for (col_name in column_names) {
+  empty_df[[col_name]] <- NA
+}
+
+# View the structured table
+empty_df %>% 
+datatable(
+  escape = FALSE,  # to render HTML
+  extensions = 'Buttons',
+  options = list(
+    scrollX = TRUE,
+    pageLength = 55,
+    lengthMenu = list(c(5, 10, 30, 50, -1), c('5', '10', '30', '50', 'All')),
+    dom = 'Bfrtip',
+    buttons = c('copy', 'csv', 'excel'),
+    title = "Sammanställd Frekvens av ICD-koder",
+        columnDefs = list(
+      list(className = 'dt-body-right', targets = 3:7) # Target columns 2 to 7 -rightalign
+    ),
+    initComplete = JS(
+      "function(settings, json) {",
+      "$(this.api().table().header()).css({'font-size': '10px'});",
+      "$(this.api().table().body()).css({'font-size': '10px'});",
+      "}"
+    )
+  ),
+  class = "compact" # This class reduces padding/margin in the table
+)
+```
+
+
+
+
+
+
 ```{r}
 
 to_char <- c("SSYK1_scb_hpi_combined")
@@ -1343,19 +1541,19 @@ datatable(
 ```
 
 
-## -Figure 2. Worklife characteristics - SCB vs HPI  
+# -Figure 2. Worklife characteristics - SCB vs HPI  
 
 Percentage point differences for year groups and total  
-EJ RIKTIG DATA
+<span style="color:red;">**EJ RIKTIG DATA** väntar fortfarande på jämförelsedata från SCB. Exempeldata.</span> 
 
-```{r out.width="100%", fig.height=7.5}
+```{r out.width="90%", fig.height=7}
 combined_plot
 ```
 
-## -Table 5. Worklife characteristics
-Relative difference/risk between SCB and HPI data
+# -Table 5. Worklife characteristics
+Relative difference/risk between SCB and HPI data  
 
-
+<span style="color:red;">Denna Väntar på jämförelsedata från SCB..</span> 
 
 
 ```{r}
@@ -1402,82 +1600,64 @@ datatable(
 
 #-------------------------
 
+# -Figure 3, The Pinnacle
 
-# 20 most underrepresented/overrepresented groups
+Figure 3 will be the pinnacle of this manuscript. it will not only show over represented and underrepresented groups in HPI data compared to the whole working population of Sweden, but it will show groups within groups within groups. However the **HOW** is yet to be decided. The figure is also awaiting SCB data.  
+  
+First step is to choose variables to be used in the aggregation. A suggestion is to keep it simple with **occupation, sex, age and by ownership sector**, and keep the data more up to date - say 2017-2023. But it could also depend on the method used to find over and underrepresented groups. Other variables of interest could be **year period, education level, work sector, company size, geographic region, country of birth and operating profit**.  
+  
+One way is to choose the 20 most underrepresented and the 20 most overrepresented groups based on their deviation from the expected representation. This could be shown in a bar chart with groups on the x-axis and their deviation from expected representation on the y-axis. Another method involves using hierarchical clustering to find and present groups with similar representation patterns. A vizual example of this can be seen below. The dendrogram visualizes the hierarchical clustering of the groups based on their features. Each branch represents a cluster, and the height of the branches indicates the distance (or dissimilarity) between clusters. Observations (or groups) that are more similar to each other based on the features are clustered together and joined at lower points on the dendrogram. By selecting a specific level of dissimilarity from the dendrogram figure, we identify distinct clusters. These clusters can subsequently be illustrated graphically to visualize the grouping. Other suggestions are welcome here. 
 
-Saknas data, vilka variabler är viktiga? yrke, kön, och ålder, privat/ej privat?
+## Hierarchical Clustering
+```{r out.width="90%", fig.height=7}
 
-Sex,  age, occupation, privat/not private, country of birth
-year period,education level, SSYK, sector, storlek på företag, region/municipality, country of birth, ekonomiskt resultat företag
+# In this code:
+# 
+# - `group_by` and `summarise` are used to calculate the average `percent_diff` for each combination of `Variable` and `Categories`.
+# - `ungroup()` is called to prevent any issues with row names not aligning correctly.
+# - The `matrix_for_clustering` variable is a matrix version of your `percent_diff` values with row names set to the combined labels.
+# - The `hclust` and `ggdendrogram` functions are used to perform the hierarchical clustering and create the dendrogram plot.
 
-## -Figure 3, waiting for SCB data
-
-Hierarchical Clustering
-```{r out.width="100%", fig.height=7.5}
-
-library(tidyclust)
-kmeans_spec <- k_means(num_clusters = 3) %>%
-  set_engine("stats")
-
- kmeans_spec %>%
-  fit(~., data = mtcars)
-
- 
+ library(ggdendro)
  d <-
-plot_table %>% select(Period, Variable,Categories, percent_diff)%>%group_by(Variable, Categories) %>%  summarise(percent_diff=mean(percent_diff)) #%>% 
-   # pivot_wider(names_from = Categories, values_from = percent_diff) %>% 
-  print(n=44)
+plot_table %>% 
+   select(Period, Variable,Categories, percent_diff) %>% 
+   drop_na() %>% 
+   group_by(Variable, Categories) %>%  
+   summarise(percent_diff=mean(percent_diff)) %>% 
+mutate(Label = paste(Variable, Categories, round(percent_diff, digits = 2), sep = "_"))
 
 
 
-
-
-
-library(cluster)
-# Assuming your data is in a dataframe called df
-# Calculate the Gower distance matrix
-gower_dist <- cluster::daisy(d[, c('Variable', 'Categories')], metric = "gower")
-
-# Perform hierarchical clustering
-hclust_res <- hclust(gower_dist, method = "ward.D2")
-
-# Plot the dendrogram
-plot(hclust_res)
-
-
-
-library(ggdendro)
-df   <- USArrests 
-labs <- paste("veryverylongtitlename",1:50,sep="")
-rownames(df) <- labs
-
-
-
-hc       <- hclust(dist(df), "ave")           # heirarchal clustering
-dendr    <- dendro_data(hc, type="rectangle") # convert for ggplot
-clust    <- cutree(hc,k=2)                    # find 2 clusters
+det<-  d
+  
+  
+d<-  as.matrix(d$percent_diff)
+rownames(d) <- det$Label
+  
+  
+hc <- hclust(dist(d), "ave")
+clust    <- cutree(hc,k=5)                    # find 5 clusters
 clust.df <- data.frame(label=names(clust), cluster=factor(clust))
-# dendr[["labels"]] has the labels, merge with clust.df based on 
-# label column
-dendr[["labels"]] <- merge(dendr[["labels"]],clust.df, by="label")
-# plot the dendrogram; note use of color=cluster in geom_text(...)
-ggplot() + 
-  geom_segment(data=segment(dendr), aes(x=x, y=y, xend=xend, 
-yend=yend)) + 
-  geom_text(data=label(dendr), aes(x, y, label=label, hjust=0, color=cluster), 
-       size=3) +
-  coord_flip() + scale_y_reverse(expand=c(0.2, 0)) + 
-  theme(axis.line.y=element_blank(),
-    axis.ticks.y=element_blank(),
-    axis.text.y=element_blank(),
-    axis.title.y=element_blank(),
-    panel.background=element_rect(fill="white"),
-    panel.grid=element_blank())
+hcdata <- dendro_data(hc, type = "rectangle") 
+
+ggdendrogram(hc, rotate = TRUE, size = 2) +
+ # geom_col(data = det,aes(Label,percent_diff))+
+  geom_segment(data = segment(hcdata), 
+              aes(x = x, y = y, xend = xend, yend = yend)) #+
+ # scale_y_reverse()#+
+  # geom_text(data = label(hcdata), 
+  #           aes(x = x, y = y, label = label, hjust = 0), 
+  #           size = 3)
+
+
+
 
 ```
+
+
+::: {.content-hidden when-format="html"}
 #-------------------------
-
-
 # 1st vs 2ond test
 percentage point difference and relative risk
 
@@ -1629,6 +1809,57 @@ df1 %>%
 ```
 
 
+Andra variabler:  
+LoneInk??, ArsLonFInk???
+ 
+**Possible additional variables**:  
+Contractual relationship insecurity.  
+Directly employed by the employer (0).  
+Employed by an agency (-1) Combination of self- and direct employment (-1).   Self-employed (-1).  
+Solo self-employed (-2).  
+Contractual temporariness Stable employment (0) Unstable employment (-2).  
+Multiple jobs/economic sectors.  
+CBA coverage (% likelihood).  
+https://isf.se/publikationer/rapporter/2018/2018-09-04-vem-far-avsattningar-till-tjanstepension
+
+Job insecurity
+Temporary employment
+
+Antal förvärvsarbetande på arbetsstället
+
+Institutionell sektorkod (företag) InstKod6
+
+https://www.sjweh.fi/show_abstract.php?abstract_id=3928&fullText=1#box-fullText
+
+
+1. 1
+2. 2-5
+3. 6-10
+4. 11-50
+5. 51-100
+6. >=101
+
+
+ 
+ Primary Sector:
+•	Agriculture, Forestry and Fishing
+Industrial and Manufacturing:
+•	Mining and Quarrying; Manufacturing
+•	Electricity, Gas, Steam and Air Conditioning Supply; Water Supply; Sewerage, Waste Management and Remediation Activities
+•	Construction
+Commercial Services:
+•	Wholesale and Retail Trade
+•	Transportation and Storage
+•	Accommodation and Food Service Activities
+•	Real Estate Activities
+•	Information and Communication
+•	Financial and Insurance Activities
+Public and Personal Services:
+•	Public Administration and Defence
+•	Education
+•	Human Health and Social Work Activities
+•	Arts, Entertainment and Recreation; Other Service Activities
+•	Professional, Scientific and Technical Activities; Administrative and Support Service Activities
 
 * Uppgift saknas
 1 Förgymnasial utbildning kortare än 9 år
@@ -1659,3 +1890,84 @@ This group covers roles primarily in the service sector, including both office-b
 
 Elementary Occupations:    
 This group includes occupations that usually perform simple and routine tasks, which may require the use of hand-held tools and physical effort. These roles often do not require formal educational credentials or specialized training. 
+
+
+
+
+
+
+
+
+
+Ownership sector (SNI)
+1. Private
+2. Public
+
+Economic sector	 (SNI)															
+ 1. Electricity, Gas, Steam and Air Conditioning Supply; Water Supply; Sewerage, Waste Management and Remediation Activities	
+ 2. Agriculture, Forestry and Fishing
+ 3. Mining and Quarrying; Manufacturing	
+ 4. Construction	
+ 5. Wholesale and Retail Trade
+ 6. Transportation and Storage	
+ 7. Accommodation and Food Service Activities	
+ 8. Information and Communication	
+ 9. Financial and Insurance Activities	
+ 10. Real Estate Activities	
+ 11. Professional, Scientific and Technical Activities; Administrative and Support Service Activities	
+ 12. Public Administration and Defence
+ 13. Education	
+ 14. Human Health and Social Work Activities	
+ 15. Arts, Entertainment and Recreation; Other service activities
+ 
+
+
+ 
+Number of employees in the company (public/private???) (Ast_AntalSys)
+European Union Definitions:
+•	Micro-Enterprises: 1-9 employees
+•	Small Enterprises: 10-49 employees
+•	Medium-Sized Enterprises: 50-249 employees
+•	Large Enterprises: 250+ employees
+
+
+Multiple jobs/ economic sectors	(AntAns, SNI)
+1. ≥2 jobs in >1 sector	
+2. ≥2 jobs	
+3. 1 job
+
+Staff Turnover Rate (%) (PersOms_Harledd / Ast_AntalSys) 
+1. (number of separations during the period / Average number of employees under the period) x 100
+
+Contractual relationship insecurity	(vi kanske inte har denna data?)
+1. Solo self-employed	
+2. Self- and direct employment / Self-employed / Agency employed	
+3. Directly employed
+
+Contractual temporariness
+1. Stable employment, Having the same employer for 3 years
+2. Unstable employment, Having the same employer for <3 years
+
+Net sales % av median? (Ftg_Nettoomsattning)
+≥200%
+120–199%
+80–119%
+60–79
+ <60%
+
+Operating Profit (Ftg_Rorelseresultat)
+≥200%
+120–199%
+80–119%
+60–79
+ <60%
+ 
+Operating Margin (Ftg_Nettoomsattning, Ftg_Rorelseresultat)
+1. (operating profit/revenue)x100
+
+
+Collective bargaining agreement coverage (% likelihood)	(kanske tas bort men möjligt att räkna på)
+1. ≤70	
+2. 71–90	
+3. 91–100
+:::
