@@ -28,21 +28,18 @@ theme:
   light: github
   dark: darkly
 ---
+
 # Project description
 
-Paper 1 in work project 1 of the work together series.  
-  
-The aim of this study was to investigate the reach, defined as the proportion of the target population that participated in the programme, of a nation-wide OHSP that has included Swedish workers for almost 30 years, both in terms of individual and organizational characteristics, and how the reach has changed over the years. A second aim was to identify under- and overrepresented groups. 
-  
-  
-The following is a suggested layout of the study results.  
+Paper 1 in work project 1 of the work together series.
 
+The aim of this study was to investigate the reach, defined as the proportion of the target population that participated in the programme, of a nation-wide OHSP that has included Swedish workers for almost 30 years, both in terms of individual and organizational characteristics, and how the reach has changed over the years.
+A second aim was to identify under- and overrepresented groups.
 
-
+The following is a suggested layout of the study results.
 
 ::: {.content-hidden when-format="html"}
-#-------------------------
-## Libraries
+#------------------------- \## Libraries
 
 ```{r}
 xfun::pkg_attach(
@@ -50,15 +47,13 @@ xfun::pkg_attach(
   "dtrackr", 
   "glue", 
   "DT", 
-  "flextable"
+  "flextable",
+  "here"
   )
 
 ```
 
-
-
-#-------------------------
-## Base theme
+#------------------------- \## Base theme
 
 ```{r}
 # theme_set(
@@ -80,8 +75,6 @@ xfun::pkg_attach(
 
 ```
 
-
-
 #-------------------------
 
 ## Data
@@ -92,96 +85,26 @@ hpa <- read_csv(here::here("..", "..","..", "HPI (DNR XXXXXX)", "Data HPI regist
 
 scb <- read_csv(here::here("..", "..","..", "HPI (DNR XXXXXX)", "Data HPI registeruttag 2023", "SCB", "SCB clean", "Grunduppgifter_2023-09-24.csv")) %>% mutate(Kommun=str_replace(Kommun, "^0+", ""))# remove leading zeros
 
+# income data
+hpa_income <- read_csv(here("..", "..","..", "HPI (DNR XXXXXX)", "Data HPI registeruttag 2023", "SCB", "Leverans", "Leverans_20240306", "with_hpi_lopnr", "6.income_variables", "income_data.csv"))
+
+# concecutive years of work
+hpa_consq <- read_csv( here::here("..", "..","..", "HPI (DNR XXXXXX)", "Data HPI registeruttag 2023", "SCB", "Leverans", "Leverans_20240306", "with_hpi_lopnr", "5.work_duration", "workduration_with.csv"))
 
 
 
+# join SCB, HPI and income data data
+df <- hpa %>% left_join(scb, by = join_by(LopNr, Performed, Year))  %>% 
+    mutate(SSYK1_scb_hpi_combined = coalesce(SSYK1, Ssyk1_hpi_combined)) %>% 
+  left_join(hpa_income, by = join_by(LopNr, Performed, Year)) %>% 
+  left_join(hpa_consq, by = join_by(LopNr, Year == year))
 
-
-
-
-
-
-# join SCB and HPI data
-df <- hpa %>% inner_join(scb, by = join_by(LopNr, Performed, Year))  %>% 
-    mutate(SSYK1_scb_hpi_combined = coalesce(SSYK1, Ssyk1_hpi_combined))
-
-```
-
-
-
-
-# Selection
-
-```{r, eval=FALSE}
-
-# Assuming 'hpa' is your original data frame
-# Calculate base counts
-base_counts <- hpa %>% 
-  arrange(LopNr, Performed) %>% 
-  mutate(hpa_number = row_number(), .by = LopNr) %>% 
-  count(hpa_number) %>% 
-  slice_head(n = 10) %>%
-  rename(base_count = n)
-
-# Calculate counts for different conditions
-hpa_counts <- hpa %>% 
-  arrange(LopNr, Performed) %>% 
-  mutate(hpa_number = row_number(), .by = LopNr)
-
-# Function to filter and count based on minimum number of non-NA values
-count_non_na <- function(data, phys_min, quest_min) {
-  data %>% 
-    filter(
-      rowSums(!is.na(select(., starts_with("EkB_rel_VO2"), starts_with("Astrand_rel_VO2"), 
-                             starts_with("HeightCM"), starts_with("WeightKG"), 
-                             starts_with("BloodPressureSystolic"), starts_with("BloodPressureDiastolic")))) >= phys_min,
-      rowSums(!is.na(select(., starts_with("ExerciseAnswer"), starts_with("TobaccoSmoking"), 
-                             starts_with("Diet"), starts_with("Health"), 
-                             starts_with("StressOverall"), starts_with("SymptomBackNeck")))) >= quest_min,
-      Year > 1994
-    ) %>% 
-    count(hpa_number) %>% 
-    slice_head(n = 10) %>%
-    # Create a column with a dynamic name based on phys_min and quest_min
-    mutate("{paste0('n', phys_min, '_', quest_min)}" := n) %>%
-    select(-c(hpa_number, n))
-}
-
-# Apply the function with different minimum values
-counts_1_1 <- count_non_na(hpa_counts, 1, 1) 
-counts_1_2 <- count_non_na(hpa_counts, 1, 2)
-counts_2_1 <- count_non_na(hpa_counts, 2, 1)
-counts_2_2 <- count_non_na(hpa_counts, 2, 2)
-counts_3_2 <- count_non_na(hpa_counts, 3, 2)
-counts_2_3 <- count_non_na(hpa_counts, 2, 3)
-counts_3_3 <- count_non_na(hpa_counts, 3, 3)
-
-# Join all counts together
-sums <- bind_cols(base_counts, counts_1_1, counts_1_2, counts_2_1, counts_2_2, counts_3_2, counts_2_3, counts_3_3) 
-  
-
-sums %>%
-  mutate(
-    diff_1_1 = base_count - n1_1,
-    ande_1_1 = (diff_1_1 / base_count) * 100,
-    diff_1_2 = base_count - n1_2,
-    ande_1_2 = (diff_1_2 / base_count) * 100,
-    diff_2_1 = base_count - n2_1,
-    ande_2_1 = (diff_2_1 / base_count) * 100,
-    diff_2_2 = base_count - n2_2,
-    ande_2_2 = (diff_2_2 / base_count) * 100,
-    diff_3_2 = base_count - n3_2,
-    ande_3_2 = (diff_3_2 / base_count) * 100,
-    diff_2_3 = base_count - n2_3,
-    ande_2_3 = (diff_2_3 / base_count) * 100,
-    diff_3_3 = base_count - n3_3,
-    ande_3_3 = (diff_3_3 / base_count) * 100
-  ) %>% select(-starts_with("n")) %>% 
-  mutate(across(everything(), round(1))) %>% 
-  flextable::flextable()
-
-
-
+# df %>% select(LopNr, Year, Performed, consecutive_years, consecutive_years_category) %>%
+#    arrange(LopNr, Performed) %>% 
+#   mutate(hpa_number = row_number(), 
+#          test_count = n(), .by = LopNr) %>% 
+#   filter(hpa_number == 1) %>% 
+#   count(consecutive_years_category)
 
 ```
 
@@ -189,7 +112,6 @@ sums %>%
 
 # Variable creation
 :::
-  
 
 ```{r}
 # data from tillväxtverket, another possibility could be skr
@@ -285,14 +207,30 @@ df1 <- df %>%
     # Divide income into quartiles
   mutate(IncomeQuartile = ntile(CSFVI, 4), 
          .by = Period) %>%
-   mutate(IncomeLevel = case_when(
+   mutate(IncomeLevel_CSFVI = case_when(
     CSFVI >= 2 * median(CSFVI) ~ "≥200%",
     CSFVI >= 1.2 * median(CSFVI) & CSFVI < 2 * median(CSFVI) ~ "120–199%",
     CSFVI >= 0.8 * median(CSFVI) & CSFVI < 1.2 * median(CSFVI) ~ "80–119%",
     CSFVI >= 0.6 * median(CSFVI) & CSFVI < 0.8 * median(CSFVI) ~ "60–79%",
     CSFVI < 0.6 * median(CSFVI) ~"<60%",
     TRUE ~ NA_character_
-  ), .by = Period) %>% 
+  ),
+     IncomeLevel = case_when(
+    LoneInk >= 2 * median(LoneInk) ~ "≥200%",
+    LoneInk >= 1.2 * median(LoneInk) & LoneInk < 2 * median(LoneInk) ~ "120–199%",
+    LoneInk >= 0.8 * median(LoneInk) & LoneInk < 1.2 * median(LoneInk) ~ "80–119%",
+    LoneInk >= 0.6 * median(LoneInk) & LoneInk < 0.8 * median(LoneInk) ~ "60–79%",
+    LoneInk < 0.6 * median(LoneInk) ~"<60%",
+    TRUE ~ NA_character_
+  ), 
+IncomeLevel_LonFInk = case_when(
+    LonFInk >= 2 * median(LonFInk) ~ "≥200%",
+    LonFInk >= 1.2 * median(LonFInk) & LonFInk < 2 * median(LonFInk) ~ "120–199%",
+    LonFInk >= 0.8 * median(LonFInk) & LonFInk < 1.2 * median(LonFInk) ~ "80–119%",
+    LonFInk >= 0.6 * median(LonFInk) & LonFInk < 0.8 * median(LonFInk) ~ "60–79%",
+    LonFInk < 0.6 * median(LonFInk) ~"<60%",
+    TRUE ~ NA_character_
+  ), .by = Period)  %>% 
   # combine occupation
     mutate(
   SSYK1_scb_hpi_combined = coalesce(SSYK1, Ssyk1_hpi_combined),
@@ -446,10 +384,13 @@ PhysicalWorkSituationDi = case_when(
 
 ```
 
-# Data driven flowchart of data in/ex-clusion  
-Could be a possible figure 1 or appendix figure.   
-  
+# Data driven flowchart of data in/ex-clusion
+
+Could be a possible figure 1 or appendix figure.
+
 **questionnaire 2 physilogical 2** = 2 out of physiological tests (EkB_rel_VO2, Astrand_rel_VO2, HeightCM, WeightKG, BloodPressureSystolic, BloodPressureDiastolic) AND 2 out of the most answered questionnaire variables (ExerciseAnswer, TobaccoSmoking, Diet, Health, StressOverall, SymptomBackNeck) is required to be in this manuscript.
+
+
 ```{r}
 
 # global options for dtrackr
@@ -467,38 +408,46 @@ old = options(
 
 df2 <-
 df1 |> 
-  track(.headline = "Flow chart     ",
-        .messages="Data SCB variables in HPI data"
+
+ # status(.messages = "n={formatC(.count, big.mark = ',')}") %>%  
+        arrange(LopNr, Performed) %>% 
+  mutate(hpa_number = row_number(), 
+         test_count = n(), .by = LopNr) %>% 
+  filter(hpa_number == 1) %>% 
+    track(#.headline = "Flow chart     ",
+        #.messages=""
   ) %>%
-  status(.messages = "n={formatC(.count, big.mark = ',')}") %>%  
   filter(rowSums(!is.na(select(., EkB_rel_VO2, Astrand_rel_VO2, HeightCM, WeightKG, BloodPressureSystolic, BloodPressureDiastolic))) >= 2,
          rowSums(!is.na(select(., ExerciseAnswer, TobaccoSmoking, Diet, Health, StressOverall, SymptomBackNeck))) >= 2, 
-         .messages = "Excluded {formatC(.excluded, big.mark = ',',format = 'fg')}", .headline = "questionnaire 2 physilogical 2" ) %>% 
+         .messages = "<2 questionnarie and\n<2 physiological variables\nn={formatC(.excluded, big.mark = ',',format = 'fg')}", .headline = "" ) %>% 
    status(.messages = "n={formatC(.count, big.mark = ',')}") %>% 
   exclude_all(
-    Year < 1995 ~ "{formatC(.excluded, big.mark = ',',format = 'fg')} Year < 1995",
-    CSFVI == 0 ~ "{formatC(.excluded, big.mark = ',',format = 'fg')} with income 0kr",
+    Year < 1995 ~ "-HPAs before 1995, n={formatC(.excluded, big.mark = ',',format = 'fg')}",
+    Year > 2021 ~ "-HPAs after 2021, n={formatC(.excluded, big.mark = ',',format = 'fg')}",
+       Age < 18 ~ "-Under 18 years of age, n={formatC(.excluded, big.mark = ',',format = 'fg')}",
+    LoneInk == 0 ~ "-No verified income, n={formatC(.excluded, big.mark = ',',format = 'fg')}",
+    .headline = ""
    # Age > 65 ~  "{formatC(.excluded, big.mark = ',',format = 'fg')} with age > 65" ,
    # is.na(SSYK1_scb_hpi_combined) ~  "{formatC(.excluded, big.mark = ',',format = 'fg')} with NA in SSYK" ,
    # is.na(Civil) ~  "{formatC(.excluded, big.mark = ',',format = 'fg')} with NA in Civil",
   #  FodelseLandEU28=="Okänt" ~  "{formatC(.excluded, big.mark = ',',format = 'fg')} with 'Okänt'in fodelselandEU28",
    # SUN2000Niva_Old=="*" ~  "{formatC(.excluded, big.mark = ',',format = 'fg')} with NA in education (*)"
   ) %>% 
-  status(.messages = "n={formatC(.count, big.mark = ',')}") %>% 
-      arrange(LopNr, Performed) %>% 
-  mutate(hpa_number = row_number(), 
-         test_count = n(), .by = LopNr) %>% 
-  filter(hpa_number == 1,
-         .messages = "Excluded {formatC(.excluded, big.mark = ',',format = 'fg')}", .headline = "Repeated tests") %>% 
+ # status(.messages = "n={formatC(.count, big.mark = ',')}") %>% 
+
  # status() %>% 
-  group_by(test_count>1, .headline = "Stratified by if having 1 or more tests  ") %>% 
-  comment(" has {formatC(.count, big.mark = ',')} items") %>%
-  ungroup(.headline = "Total study population\nn={formatC(.count, big.mark = ',')}",
+  # group_by(test_count>1, .headline = "Those with 1 vs those with >1 tests     ",
+  #          .messages = "") %>% 
+  # comment(" has {formatC(.count, big.mark = ',')} items") %>%
+  ungroup(.headline = "Total study population\nn={formatC(.count, big.mark = ','  )  }                    ",
           .messages = "") 
 
 
 
-df2 %>% flowchart()
+df2 %>% flowchart(
+    filename = here::here("figures", "Flowchart_WP1_Paper1"),
+  formats = c("png", "pdf", "svg")
+)
 
 df2 <- df2 %>% as_tibble()
 #df1 |> 
@@ -814,13 +763,12 @@ sum_table.fun <- function(df, val, group, gr_order, stat_type ) {
 
 ```
 
-
 ::: {.content-hidden when-format="html"}
 # Function for creating vs-tables
 
 # -------------------------
-
 :::
+
 ```{r}
 
 ### Function for calculate difference between percentages of categorical variables ####
@@ -958,12 +906,12 @@ percent_diff =  percent.y -percent.x,
   
 ```
 
-
-
-
-
 # -Table 1. Lifestyle characteristics
-Table 1 is to describe the study population. These variables will not be used anywhere else in this manuscript. However it shows the percentage missing in the different variables. 
+
+Table 1 is to describe the study population.
+These variables will not be used anywhere else in this manuscript.
+However it shows the percentage missing in the different variables.
+
 ```{r}
 
 
@@ -988,7 +936,8 @@ df2 %>%
 
 t1  <-
 t1 %>% 
-  mutate(Variables = case_when(
+  mutate(
+    Variables = case_when(
     Variables == "HeightCM" ~ "Height cm, Mean (SD)",
     Variables == "WeightKG" ~ "Weight kg, Mean (SD)",
     Variables == "BMI" ~ "BMI, Mean (SD)",
@@ -1002,26 +951,45 @@ t1 %>%
     Variables == "ExerciseDi" ~ "Exercise, n (%)",
     Variables == "HealthDi" ~ "Perceived Health, n (%)",
     TRUE ~ Variables  
-  )) %>% 
-slice(
-    # Basic physical measurements
-    1, 2,  # Height
-    3, 4,  # Weight
-    5, 6,  # BMI
-    13, 14, 15, 16, # BMI categories
-
-    # Lifestyle factors
-    31, 32, 33, 34, 35, # Exercise frequency
-    21, 22, 23, 24, 25, # Smoking
-    36, 37, 38, 39, 40,  # Physical work situation
-
-    # Health indicators
-    7, 8,  # Estimated VO2max relative EB
-    9, 10, # Estimated VO2max absolute Å
-    11, 12,# Estimated VO2max relative Å
-    17, 18, 19, 20, # VO2max categories (Åstrand)
-    26, 27, 28, 29, 30 # General health
-)
+  ))  %>%  
+  mutate(order = case_when(
+    Variables == "HeightCM" ~ 1,
+    Variables == "WeightKG" ~ 3,
+    Variables == "BMI" ~ 5,
+    Variables == "BMI_cat - ≤25" ~ 12,
+        Variables == "BMI_cat - 25-30" ~ 13,
+    Variables == "BMI_cat - ≥30" ~ 14,
+    Variables == "Astrand_MaxVO2" ~ 7,
+    Variables == "Astrand_rel_VO2" ~ 9,
+    Variables == "astr_cat - <32" ~ 15,
+    Variables == "astr_cat - ≥32" ~ 16,
+    Variables == "TobaccoSmokingDi - Never" ~ 19,
+    Variables == "PhysicalWorkSituationDi - Physically active work" ~ 34,
+    Variables == "ExerciseDi - Weekly" ~ 29,
+    Variables == "HealthDi - Good" ~ 24,
+    TRUE ~ 999  # Other variables at the end
+  )) %>%
+  arrange(order) %>%
+  select(-order) #%>% 
+# slice(
+#     # Basic physical measurements
+#     1, 2,  # Height
+#     3, 4,  # Weight
+#     5, 6,  # BMI
+#     13, 14, 15, 16, # BMI categories
+# 
+#     # Lifestyle factors
+#     31, 32, 33, 34, 35, # Exercise frequency
+#     21, 22, 23, 24, 25, # Smoking
+#     36, 37, 38, 39, 40,  # Physical work situation
+# 
+#     # Health indicators
+#     7, 8,  # Estimated VO2max relative EB
+#     9, 10, # Estimated VO2max absolute Å
+#     11, 12,# Estimated VO2max relative Å
+#     17, 18, 19, 20, # VO2max categories (Åstrand)
+#     26, 27, 28, 29, 30 # General health
+# )
 
 
 # Skapa en DataTable från den sammanfogade datan
@@ -1052,13 +1020,15 @@ datatable(
 
 ```
 
-
 #-------------------------
-  
-# Sociodemographics  
 
-# -Table 2. Sociodemographics  
-Sociodemographic variables at the time of the HPI test are displayed as percentages across various groupings, serving both to characterize the study population and to lay the groundwork for subsequent analyses. These percentages will be further examined in comparison with SCB data in the upcoming figure and table.
+# Sociodemographics
+
+# -Table 2. Sociodemographics
+
+Sociodemographic variables at the time of the HPI test are displayed as percentages across various groupings, serving both to characterize the study population and to lay the groundwork for subsequent analyses.
+These percentages will be further examined in comparison with SCB data in the upcoming figure and table.
+
 ```{r}
 to_char <- c("SSYK1_scb_hpi_combined")
 
@@ -1133,14 +1103,13 @@ datatable(
 
 ```
 
-# -Figure 1. Sociodemographics - SCB vs HPI data  
-Figure shows percentage point differences for year groups and total in different sociodemographic categories. THe figure is not in its final form, more of a concept image that will be improved. 
+# -Figure 1. Sociodemographics - SCB vs HPI data
 
+Figure shows percentage point differences for year groups and total in different sociodemographic categories.
+THe figure is not in its final form, more of a concept image that will be improved.
 
-
-
-<span style="color:red;">**EJ RIKTIG DATA** väntar fortfarande på jämförelsedata från SCB. Exempeldata.</span> R.
-
+[**EJ RIKTIG DATA** väntar fortfarande på jämförelsedata från SCB. Exempeldata.]{style="color:red;"}
+R.
 
 ```{r out.width="90%", fig.height=7}
 
@@ -1315,13 +1284,12 @@ combined_plot
 
 ```
 
+# -Table 3. Sociodemographics
 
+Table shows relative difference/risk between SCB and HPI data in different sociodemographic categories.
 
+[**EJ RIKTIG DATA** väntar fortfarande på jämförelsedata från SCB. Exempeldata.]{style="color:red;"}
 
-# -Table 3. Sociodemographics  
-Table shows relative difference/risk between SCB and HPI data in different sociodemographic categories.  
- 
-<span style="color:red;">**EJ RIKTIG DATA** väntar fortfarande på jämförelsedata från SCB. Exempeldata.</span>
 ```{r}
  rel_diff_table <- 
    compare_percentages(
@@ -1365,17 +1333,16 @@ datatable(
  
 ```
 
-
 #-------------------------
-  
-# Worklife characteristics  
-This part is missing a lot of data as we are waiting for register data from statistics Sweden. However it is meant that it should follow same pattern as the presentation of socioeconomic data above. below we will present some possible aggregations of the long awaited SCB data. The categorization is up to discussion.  
 
+# Worklife characteristics
 
+This part is missing a lot of data as we are waiting for register data from statistics Sweden.
+However it is meant that it should follow same pattern as the presentation of socioeconomic data above.
+below we will present some possible aggregations of the long awaited SCB data.
+The categorization is up to discussion.
 
-# -Table 4. Worklife characteristics  
-
-
+# -Table 4. Worklife characteristics
 
 ```{r}
 library(tidyverse)
@@ -1471,11 +1438,6 @@ datatable(
 )
 ```
 
-
-
-
-
-
 ```{r}
 
 to_char <- c("SSYK1_scb_hpi_combined")
@@ -1540,21 +1502,20 @@ datatable(
 
 ```
 
+# -Figure 2. Worklife characteristics - SCB vs HPI
 
-# -Figure 2. Worklife characteristics - SCB vs HPI  
-
-Percentage point differences for year groups and total  
-<span style="color:red;">**EJ RIKTIG DATA** väntar fortfarande på jämförelsedata från SCB. Exempeldata.</span> 
+Percentage point differences for year groups and total\
+[**EJ RIKTIG DATA** väntar fortfarande på jämförelsedata från SCB. Exempeldata.]{style="color:red;"}
 
 ```{r out.width="90%", fig.height=7}
 combined_plot
 ```
 
 # -Table 5. Worklife characteristics
-Relative difference/risk between SCB and HPI data  
 
-<span style="color:red;">Denna Väntar på jämförelsedata från SCB..</span> 
+Relative difference/risk between SCB and HPI data
 
+[Denna Väntar på jämförelsedata från SCB..]{style="color:red;"}
 
 ```{r}
  rel_diff_table <- 
@@ -1602,13 +1563,29 @@ datatable(
 
 # -Figure 3, The Pinnacle
 
-Figure 3 will be the pinnacle of this manuscript. it will not only show over represented and underrepresented groups in HPI data compared to the whole working population of Sweden, but it will show groups within groups within groups. However the **HOW** is yet to be decided. The figure is also awaiting SCB data.  
-  
-First step is to choose variables to be used in the aggregation. A suggestion is to keep it simple with **occupation, sex, age and by ownership sector**, and keep the data more up to date - say 2017-2023. But it could also depend on the method used to find over and underrepresented groups. Other variables of interest could be **year period, education level, work sector, company size, geographic region, country of birth and operating profit**.  
-  
-One way is to choose the 20 most underrepresented and the 20 most overrepresented groups based on their deviation from the expected representation. This could be shown in a bar chart with groups on the x-axis and their deviation from expected representation on the y-axis. Another method involves using hierarchical clustering to find and present groups with similar representation patterns. A vizual example of this can be seen below. The dendrogram visualizes the hierarchical clustering of the groups based on their features. Each branch represents a cluster, and the height of the branches indicates the distance (or dissimilarity) between clusters. Observations (or groups) that are more similar to each other based on the features are clustered together and joined at lower points on the dendrogram. By selecting a specific level of dissimilarity from the dendrogram figure, we identify distinct clusters. These clusters can subsequently be illustrated graphically to visualize the grouping. Other suggestions are welcome here. 
+Figure 3 will be the pinnacle of this manuscript.
+it will not only show over represented and underrepresented groups in HPI data compared to the whole working population of Sweden, but it will show groups within groups within groups.
+However the **HOW** is yet to be decided.
+The figure is also awaiting SCB data.
+
+First step is to choose variables to be used in the aggregation.
+A suggestion is to keep it simple with **occupation, sex, age and by ownership sector**, and keep the data more up to date - say 2017-2023.
+But it could also depend on the method used to find over and underrepresented groups.
+Other variables of interest could be **year period, education level, work sector, company size, geographic region, country of birth and operating profit**.
+
+One way is to choose the 20 most underrepresented and the 20 most overrepresented groups based on their deviation from the expected representation.
+This could be shown in a bar chart with groups on the x-axis and their deviation from expected representation on the y-axis.
+Another method involves using hierarchical clustering to find and present groups with similar representation patterns.
+A vizual example of this can be seen below.
+The dendrogram visualizes the hierarchical clustering of the groups based on their features.
+Each branch represents a cluster, and the height of the branches indicates the distance (or dissimilarity) between clusters.
+Observations (or groups) that are more similar to each other based on the features are clustered together and joined at lower points on the dendrogram.
+By selecting a specific level of dissimilarity from the dendrogram figure, we identify distinct clusters.
+These clusters can subsequently be illustrated graphically to visualize the grouping.
+Other suggestions are welcome here.
 
 ## Hierarchical Clustering
+
 ```{r out.width="90%", fig.height=7}
 
 # In this code:
@@ -1655,14 +1632,11 @@ ggdendrogram(hc, rotate = TRUE, size = 2) +
 
 ```
 
-
 ::: {.content-hidden when-format="html"}
-#-------------------------
-# 1st vs 2ond test
-percentage point difference and relative risk
-
+#------------------------- \# 1st vs 2ond test percentage point difference and relative risk
 
 ## -Table 6. Difference between those with one test vs those with 2 or more tests at their first test.
+
 ```{r}
  result_table <- 
    compare_percentages(
@@ -1706,8 +1680,6 @@ datatable(
 
    
 ```
-
-
 
 ```{r}
 
@@ -1753,9 +1725,7 @@ datatable(
 
 ```
 
-
 KAN även visas i graf form, men kanske räcker med en tabell för detta.
-
 
 ```{r out.width="100%", fig.height=7.5}
 result_table %>% 
@@ -1772,13 +1742,12 @@ result_table %>%
      theme(legend.position = "bottom")
 ```
 
-
 #-------------------------
-
 
 # other stuff not included in paper
 
 ## Income graph
+
 ```{r}
 
 df1 %>%
@@ -1808,166 +1777,128 @@ df1 %>%
 
 ```
 
+Andra variabler:\
+LoneInk??,
+ArsLonFInk???
 
-Andra variabler:  
-LoneInk??, ArsLonFInk???
- 
-**Possible additional variables**:  
-Contractual relationship insecurity.  
-Directly employed by the employer (0).  
-Employed by an agency (-1) Combination of self- and direct employment (-1).   Self-employed (-1).  
-Solo self-employed (-2).  
-Contractual temporariness Stable employment (0) Unstable employment (-2).  
-Multiple jobs/economic sectors.  
-CBA coverage (% likelihood).  
+**Possible additional variables**:\
+Contractual relationship insecurity.\
+Directly employed by the employer (0).\
+Employed by an agency (-1) Combination of self- and direct employment (-1).
+Self-employed (-1).\
+Solo self-employed (-2).\
+Contractual temporariness Stable employment (0) Unstable employment (-2).\
+Multiple jobs/economic sectors.\
+CBA coverage (% likelihood).\
 https://isf.se/publikationer/rapporter/2018/2018-09-04-vem-far-avsattningar-till-tjanstepension
 
-Job insecurity
-Temporary employment
+Job insecurity Temporary employment
 
 Antal förvärvsarbetande på arbetsstället
 
 Institutionell sektorkod (företag) InstKod6
 
-https://www.sjweh.fi/show_abstract.php?abstract_id=3928&fullText=1#box-fullText
+https://www.sjweh.fi/show_abstract.php?a
+bstract_id=3928&fullText=1#box-fullText
 
+1.  1
 
-1. 1
-2. 2-5
-3. 6-10
-4. 11-50
-5. 51-100
-6. >=101
+2.  2-5
 
+3.  6-10
 
- 
- Primary Sector:
-•	Agriculture, Forestry and Fishing
-Industrial and Manufacturing:
-•	Mining and Quarrying; Manufacturing
-•	Electricity, Gas, Steam and Air Conditioning Supply; Water Supply; Sewerage, Waste Management and Remediation Activities
-•	Construction
-Commercial Services:
-•	Wholesale and Retail Trade
-•	Transportation and Storage
-•	Accommodation and Food Service Activities
-•	Real Estate Activities
-•	Information and Communication
-•	Financial and Insurance Activities
-Public and Personal Services:
-•	Public Administration and Defence
-•	Education
-•	Human Health and Social Work Activities
-•	Arts, Entertainment and Recreation; Other Service Activities
-•	Professional, Scientific and Technical Activities; Administrative and Support Service Activities
+4.  11-50
 
-* Uppgift saknas
-1 Förgymnasial utbildning kortare än 9 år
-2 Förgymnasial utbildning 9 år
-3 Gymnasial utbildning högst 2-årig
-4 Gymnasial utbildning 3 år
-5 Eftergymnasial utbildning kortare än 3 år
-6 Eftergymnasial utbildning 3 år eller längre (exkl. forskarutbildning)
-7 Forskarutbildning 
+5.  51-100
 
+6.  
 
-High-Skilled Group:  
-Managers and Administrators
-Professionals (e.g., healthcare, education, IT)
-Technicians and Associate Professionals
-This group encompasses roles that typically require advanced education, specialized skills, and a high level of expertise.
+    > =101
 
-Skilled Manual (Blue Collar) Group:  
-Skilled Agricultural, Forestry, and Fishery Workers
-Craft and Related Trades Workers
-Plant and Machine Operators, and Assemblers
-Jobs in this group generally require specific vocational skills or training, often involving manual labor or technical expertise.  
+   Primary Sector: • Agriculture, Forestry and Fishing Industrial and Manufacturing: • Mining and Quarrying; Manufacturing • Electricity, Gas, Steam and Air Conditioning Supply; Water Supply; Sewerage, Waste Management and Remediation Activities • Construction Commercial Services: • Wholesale and Retail Trade • Transportation and Storage • Accommodation and Food Service Activities • Real Estate Activities • Information and Communication • Financial and Insurance Activities Public and Personal Services: • Public Administration and Defence • Education • Human Health and Social Work Activities • Arts, Entertainment and Recreation; Other Service Activities • Professional, Scientific and Technical Activities; Administrative and Support Service Activities
 
+-   Uppgift saknas 1 Förgymnasial utbildning kortare än 9 år 2 Förgymnasial utbildning 9 år 3 Gymnasial utbildning högst 2-årig 4 Gymnasial utbildning 3 år 5 Eftergymnasial utbildning kortare än 3 år 6 Eftergymnasial utbildning 3 år eller längre (exkl. forskarutbildning) 7 Forskarutbildning
 
-Clerical and Service Workers Group (Clerical Support Workers,   
-Service and Sales Workers):  
-This group covers roles primarily in the service sector, including both office-based clerical jobs and customer-facing service roles. These occupations may require certain levels of training and skills, but not to the extent of the high-skilled group.
+High-Skilled Group:\
+Managers and Administrators Professionals (e.g., healthcare, education, IT) Technicians and Associate Professionals This group encompasses roles that typically require advanced education, specialized skills, and a high level of expertise.
 
-Elementary Occupations:    
-This group includes occupations that usually perform simple and routine tasks, which may require the use of hand-held tools and physical effort. These roles often do not require formal educational credentials or specialized training. 
+Skilled Manual (Blue Collar) Group:\
+Skilled Agricultural, Forestry, and Fishery Workers Craft and Related Trades Workers Plant and Machine Operators, and Assemblers Jobs in this group generally require specific vocational skills or training, often involving manual labor or technical expertise.
 
+Clerical and Service Workers Group (Clerical Support Workers,\
+Service and Sales Workers):\
+This group covers roles primarily in the service sector, including both office-based clerical jobs and customer-facing service roles.
+These occupations may require certain levels of training and skills, but not to the extent of the high-skilled group.
 
+Elementary Occupations:\
+This group includes occupations that usually perform simple and routine tasks, which may require the use of hand-held tools and physical effort.
+These roles often do not require formal educational credentials or specialized training.
 
+Ownership sector (SNI) 1.
+Private 2.
+Public
 
+Economic sector (SNI)\
+ 1.
+Electricity, Gas, Steam and Air Conditioning Supply; Water Supply; Sewerage, Waste Management and Remediation Activities\
+ 2.
+Agriculture, Forestry and Fishing  3.
+Mining and Quarrying; Manufacturing  4.
+Construction\
+ 5.
+Wholesale and Retail Trade  6.
+Transportation and Storage\
+ 7.
+Accommodation and Food Service Activities\
+ 8.
+Information and Communication\
+ 9.
+Financial and Insurance Activities\
+ 10.
+Real Estate Activities  11.
+Professional, Scientific and Technical Activities; Administrative and Support Service Activities\
+ 12.
+Public Administration and Defence  13.
+Education\
+ 14.
+Human Health and Social Work Activities\
+ 15.
+Arts, Entertainment and Recreation; Other service activities  
 
+  Number of employees in the company (public/private???) (Ast_AntalSys) European Union Definitions: • Micro-Enterprises: 1-9 employees • Small Enterprises: 10-49 employees • Medium-Sized Enterprises: 50-249 employees • Large Enterprises: 250+ employees
 
+Multiple jobs/ economic sectors (AntAns, SNI) 1.
+≥2 jobs in \>1 sector 2.
+≥2 jobs\
+3.
+1 job
 
+Staff Turnover Rate (%) (PersOms_Harledd / Ast_AntalSys) 1.
+(number of separations during the period / Average number of employees under the period) x 100
 
+Contractual relationship insecurity (vi kanske inte har denna data?) 1.
+Solo self-employed\
+2.
+Self- and direct employment / Self-employed / Agency employed\
+3.
+Directly employed
 
-Ownership sector (SNI)
-1. Private
-2. Public
+Contractual temporariness 1.
+Stable employment, Having the same employer for 3 years 2.
+Unstable employment, Having the same employer for \<3 years
 
-Economic sector	 (SNI)															
- 1. Electricity, Gas, Steam and Air Conditioning Supply; Water Supply; Sewerage, Waste Management and Remediation Activities	
- 2. Agriculture, Forestry and Fishing
- 3. Mining and Quarrying; Manufacturing	
- 4. Construction	
- 5. Wholesale and Retail Trade
- 6. Transportation and Storage	
- 7. Accommodation and Food Service Activities	
- 8. Information and Communication	
- 9. Financial and Insurance Activities	
- 10. Real Estate Activities	
- 11. Professional, Scientific and Technical Activities; Administrative and Support Service Activities	
- 12. Public Administration and Defence
- 13. Education	
- 14. Human Health and Social Work Activities	
- 15. Arts, Entertainment and Recreation; Other service activities
- 
+Net sales % av median?
+(Ftg_Nettoomsattning) ≥200% 120–199% 80–119% 60–79 \<60%
 
+Operating Profit (Ftg_Rorelseresultat) ≥200% 120–199% 80–119% 60–79 \<60%
 
- 
-Number of employees in the company (public/private???) (Ast_AntalSys)
-European Union Definitions:
-•	Micro-Enterprises: 1-9 employees
-•	Small Enterprises: 10-49 employees
-•	Medium-Sized Enterprises: 50-249 employees
-•	Large Enterprises: 250+ employees
+Operating Margin (Ftg_Nettoomsattning, Ftg_Rorelseresultat) 1.
+(operating profit/revenue)x100
 
-
-Multiple jobs/ economic sectors	(AntAns, SNI)
-1. ≥2 jobs in >1 sector	
-2. ≥2 jobs	
-3. 1 job
-
-Staff Turnover Rate (%) (PersOms_Harledd / Ast_AntalSys) 
-1. (number of separations during the period / Average number of employees under the period) x 100
-
-Contractual relationship insecurity	(vi kanske inte har denna data?)
-1. Solo self-employed	
-2. Self- and direct employment / Self-employed / Agency employed	
-3. Directly employed
-
-Contractual temporariness
-1. Stable employment, Having the same employer for 3 years
-2. Unstable employment, Having the same employer for <3 years
-
-Net sales % av median? (Ftg_Nettoomsattning)
-≥200%
-120–199%
-80–119%
-60–79
- <60%
-
-Operating Profit (Ftg_Rorelseresultat)
-≥200%
-120–199%
-80–119%
-60–79
- <60%
- 
-Operating Margin (Ftg_Nettoomsattning, Ftg_Rorelseresultat)
-1. (operating profit/revenue)x100
-
-
-Collective bargaining agreement coverage (% likelihood)	(kanske tas bort men möjligt att räkna på)
-1. ≤70	
-2. 71–90	
-3. 91–100
+Collective bargaining agreement coverage (% likelihood) (kanske tas bort men möjligt att räkna på) 1.
+≤70\
+2.
+71–90\
+3.
+91–100
 :::
