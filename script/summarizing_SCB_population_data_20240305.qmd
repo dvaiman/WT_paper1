@@ -39,11 +39,20 @@ weighted_mean <- sum(percentages * populations) / sum(populations)
 # Print the result
 weighted_mean
 
+
+
 ```
 
 
 
+script 1
 
+
+
+script 2
+1. Run 1.1
+2. Run 1.2
+3. Run 2.1
 
 
 ```{r}
@@ -68,117 +77,439 @@ haven::read_sas(here::here("..", "..","..", "HPI (DNR XXXXXX)", "Data HPI regist
 scb_2021 <- 
 haven::read_sas(here::here("..", "..","..", "HPI (DNR XXXXXX)", "Data HPI registeruttag 2023", "SCB", "Leverans", "Leverans_20240306","Leverans1990_2022", "eeb_lev_2021.sas7bdat"))
 
-scb_2020 <- 
-haven::read_sas(here::here("..", "..","..", "HPI (DNR XXXXXX)", "Data HPI registeruttag 2023", "SCB", "Leverans", "Leverans_20240306","Leverans1990_2022", "eeb_lev_2020.sas7bdat"))
+scb_1997 <- 
+haven::read_sas(here::here("..", "..","..", "HPI (DNR XXXXXX)", "Data HPI registeruttag 2023", "SCB", "Leverans", "Leverans_20240306","Leverans1990_2022", "eeb_lev_1997.sas7bdat"))
 
-scb_2012 <- 
-haven::read_sas(here::here("..", "..","..", "HPI (DNR XXXXXX)", "Data HPI registeruttag 2023", "SCB", "Leverans", "Leverans_20240306","Leverans1990_2022", "eeb_lev_2012.sas7bdat"))
+scb_1996 <- 
+haven::read_sas(here::here("..", "..","..", "HPI (DNR XXXXXX)", "Data HPI registeruttag 2023", "SCB", "Leverans", "Leverans_20240306","Leverans1990_2022", "eeb_lev_1996.sas7bdat"))
 
-scb_2011 <- 
-haven::read_sas(here::here("..", "..","..", "HPI (DNR XXXXXX)", "Data HPI registeruttag 2023", "SCB", "Leverans", "Leverans_20240306","Leverans1990_2022", "eeb_lev_2011.sas7bdat"))
+scb_2015 <- 
+haven::read_sas(here::here("..", "..","..", "HPI (DNR XXXXXX)", "Data HPI registeruttag 2023", "SCB", "Leverans", "Leverans_20240306","Leverans1990_2022", "eeb_lev_2015.sas7bdat"))
+scb_2016 <- 
+haven::read_sas(here::here("..", "..","..", "HPI (DNR XXXXXX)", "Data HPI registeruttag 2023", "SCB", "Leverans", "Leverans_20240306","Leverans1990_2022", "eeb_lev_2016.sas7bdat"))
+scb_2017 <- 
+haven::read_sas(here::here("..", "..","..", "HPI (DNR XXXXXX)", "Data HPI registeruttag 2023", "SCB", "Leverans", "Leverans_20240306","Leverans1990_2022", "eeb_lev_2017.sas7bdat"))
+scb_2019 <- 
+haven::read_sas(here::here("..", "..","..", "HPI (DNR XXXXXX)", "Data HPI registeruttag 2023", "SCB", "Leverans", "Leverans_20240306","Leverans1990_2022", "eeb_lev_2019.sas7bdat"))
+
+scb_2002 <- 
+haven::read_sas(here::here("..", "..","..", "HPI (DNR XXXXXX)", "Data HPI registeruttag 2023", "SCB", "Leverans", "Leverans_20240306","Leverans1990_2022", "eeb_lev_2002.sas7bdat"))
 
 
-scb_1995 <- 
-haven::read_sas(here::here("..", "..","..", "HPI (DNR XXXXXX)", "Data HPI registeruttag 2023", "SCB", "Leverans", "Leverans_20240306","Leverans1990_2022", "eeb_lev_1995.sas7bdat"))
+scb_1997 <- 
+haven::read_sas(here::here("..", "..","..", "HPI (DNR XXXXXX)", "Data HPI registeruttag 2023", "SCB", "Leverans", "Leverans_20240306","Leverans1990_2022", "eeb_lev_1997.sas7bdat"))
 
-scb_1995 %>%  count(AstSNI92)
-scb_2020 %>% glimpse()
-scb_2011 %>% count(InstKod7)
+
+
+
+
+
+
+
+
+scb_2015 %>%
+   filter(str_detect(Ssyk3_2012_J16, "^22")) %>%
+  count(Missing=is.na(Ftg_Nettoomsattning)) %>% mutate(Percentage=n/sum(n)*100)
+
+
+
+scb_2015 %>%
+   filter(str_detect(Ssyk3_2012_J16, "^21")) %>%
+  count(Missing=is.na(Ftg_Nettoomsattning)) %>% mutate(Percentage=n/sum(n)*100)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+scb_2012 %>% 
+  mutate(Year =2012,
+    Ssyk3_minorlevel = if (length(grep("^Ssyk3", names(.))) > 0) {
+      as.numeric(str_extract(.[[grep("^Ssyk3", names(.))[[1]]]], "\\d+"))
+    } else NA_real_, # Using NA_real_ to explicitly denote numeric NA
+  Ssyk2_submajorlevel = as.numeric(str_sub(Ssyk3_minorlevel, end = 2)),
+  Ssyk1_majorlevel = as.numeric(str_sub(Ssyk3_minorlevel, end = 1)),
+    SSYK = if ("Ssyk3_minorlevel" %in% names(.)) {
+    #  if ("Year" %in% names(.) && all(c("Ssyk1_majorlevel", "Ssyk2_submajorlevel", "Ssyk3_minorlevel") %in% names(.))) {
+      case_when(
+         !is.na(Ssyk1_majorlevel) & Ssyk1_majorlevel == "0" & Year < 2014 ,
+      !is.na(Ssyk1_majorlevel) & Ssyk1_majorlevel == "1" & Year < 2014 ~ "Managers",
+        Year < 2014 & Ssyk2_submajorlevel == 21 ~ "Science and engineering",
+        Year < 2014 & Ssyk2_submajorlevel == 22 ~ "Health care",
+        Ssyk2_submajorlevel == 23 ~ "Education",
+        Year < 2014 & Ssyk2_submajorlevel >= 24 & Ssyk2_submajorlevel < 30 ~ "Other professionals",
+        Year < 2014 & Ssyk1_majorlevel == 3 ~ "Associate professionals",
+        Year < 2014 & Ssyk1_majorlevel == 4 ~ "Administration and customer service",
+        Year < 2014 & Ssyk3_minorlevel == 513  ~ "Personal care",
+        Year < 2014 & str_starts(as.character(Ssyk3_minorlevel), "5") ~ "Service and shop sales",
+        Year < 2014 & Ssyk1_majorlevel == 6 ~ "Agriculture and forestry",
+        Year < 2014 & Ssyk2_submajorlevel == 71 ~ "Building",
+        Year < 2014 & Ssyk2_submajorlevel > 71 & Ssyk2_submajorlevel < 80 ~ "Manufacturing",
+        Year < 2014 & Ssyk2_submajorlevel == 83 ~ "Transport",
+        Year < 2014 & (Ssyk2_submajorlevel >= 80 & Ssyk2_submajorlevel < 83 | Ssyk2_submajorlevel >= 84 & Ssyk2_submajorlevel < 90) ~ "Mechanical manufacturing",
+        Year < 2014 & Ssyk2_submajorlevel == 91 ~ "Cleaners",
+        Year < 2014 & Ssyk2_submajorlevel > 91 ~ "Other elementary occupations",
+        
+        Year >= 2014 & Ssyk1_majorlevel == 0 ~ "Military",
+        Year >= 2014 & Ssyk1_majorlevel == 1 ~ "Managers",
+        Year >= 2014 & Ssyk2_submajorlevel == 21 ~ "Science and engineering",
+        Year >= 2014 & Ssyk2_submajorlevel == 22 ~ "Health care",
+        Year >= 2014 & Ssyk2_submajorlevel == 23 ~ "Education",
+        Year >= 2014 & Ssyk2_submajorlevel >= 24 & Ssyk2_submajorlevel < 30 ~ "Other professionals",
+        Year >= 2014 & Ssyk1_majorlevel == 3 ~ "Associate professionals",
+        Year >= 2014 & Ssyk1_majorlevel == 4 ~ "Administration and customer service",
+        Year >= 2014 & Ssyk2_submajorlevel == 53 ~ "Personal care",
+        Year >= 2014 & (Ssyk2_submajorlevel > 50 & Ssyk2_submajorlevel < 54 | Ssyk2_submajorlevel >= 54 & Ssyk2_submajorlevel < 60) ~ "Service and shop sales",
+        Year >= 2014 & Ssyk1_majorlevel == 6 ~ "Agriculture and forestry",
+        Year >= 2014 & Ssyk2_submajorlevel == 71 ~ "Building",
+        Year >= 2014 & Ssyk2_submajorlevel > 71 & Ssyk2_submajorlevel < 80 ~ "Manufacturing",
+        Year >= 2014 & Ssyk2_submajorlevel == 83 ~ "Transport",
+        Year >= 2014 & (Ssyk2_submajorlevel >= 80 & Ssyk2_submajorlevel < 83 | Ssyk2_submajorlevel >= 84 & Ssyk2_submajorlevel < 90) ~ "Mechanical manufacturing",
+        Year >= 2014 & Ssyk2_submajorlevel == 91 ~ "Cleaners",
+        Year >= 2014 & Ssyk2_submajorlevel > 91 ~ "Other elementary occupations",
+        
+        TRUE ~ NA_character_
+      )
+    } else NA_character_ ) %>% 
+  select(Ssyk1_majorlevel, Ssyk2_submajorlevel, Ssyk3_minorlevel, SSYK)
+
+
+ scb_2012 %>% #select(!c(Ssyk3, Ssyk3_J16)) %>% 
+  mutate(Year=2012,
+    # extracting cols that begins with Ssyk3 and 
+    Ssyk3_minorlevel = if (length(grep("^Ssyk3", names(.))) > 0) {
+      as.numeric(str_extract(.[[grep("^Ssyk3", names(.))[[1]]]], "\\d+"))
+    } else NA_real_,  # Using NA_real_ to explicitly denote numeric NA
+    Ssyk2_submajorlevel = as.numeric(str_sub(Ssyk3_minorlevel, end = 2)),
+    Ssyk1_majorlevel = as.numeric(str_sub(Ssyk3_minorlevel, end = 1)),
+    SSYK = case_when(
+      # SSYK96, pre 2014
+      Year < 2014 & Ssyk1_majorlevel == 0 ~ "Military",
+      Year < 2014 & Ssyk1_majorlevel == 1 ~ "Managers",
+      Year < 2014 & Ssyk2_submajorlevel == 21 ~ "Science and engineering",
+      Year < 2014 & Ssyk2_submajorlevel == 22 ~ "Health care",
+      Year < 2014 & Ssyk2_submajorlevel == 23 ~ "Education",
+      Year < 2014 & Ssyk2_submajorlevel >= 24 & Ssyk2_submajorlevel < 30 ~ "Other professionals",
+      Year < 2014 & Ssyk1_majorlevel == 3 ~ "Associate professionals",
+      Year < 2014 & Ssyk1_majorlevel == 4 ~ "Administration and customer service",
+      Year < 2014 & Ssyk3_minorlevel == 513 ~ "Personal care",
+      Year < 2014 & str_starts(as.character(Ssyk3_minorlevel), "5") ~ "Service and shop sales",
+      Year < 2014 & Ssyk1_majorlevel == 6 ~ "Agriculture and forestry",
+      Year < 2014 & Ssyk2_submajorlevel == 71 ~ "Building",
+      Year < 2014 & Ssyk2_submajorlevel > 71 & Ssyk2_submajorlevel < 80 ~ "Manufacturing",
+      Year < 2014 & Ssyk2_submajorlevel == 83 ~ "Transport",
+      Year < 2014 & (Ssyk2_submajorlevel >= 80 & Ssyk2_submajorlevel < 83 | Ssyk2_submajorlevel >= 84 & Ssyk2_submajorlevel < 90) ~ "Mechanical manufacturing",
+      Year < 2014 & Ssyk2_submajorlevel == 91 ~ "Cleaners",
+      Year < 2014 & Ssyk2_submajorlevel > 91 ~ "Other elementary occupations",
+      # SSYK2012, post 2013
+      Year >= 2014 & Ssyk1_majorlevel == 0 ~ "Military",
+      Year >= 2014 & Ssyk1_majorlevel == 1 ~ "Managers",
+      Year >= 2014 & Ssyk2_submajorlevel == 21 ~ "Science and engineering",
+      Year >= 2014 & Ssyk2_submajorlevel == 22 ~ "Health care",
+      Year >= 2014 & Ssyk2_submajorlevel == 23 ~ "Education",
+      Year >= 2014 & Ssyk2_submajorlevel >= 24 & Ssyk2_submajorlevel < 30 ~ "Other professionals",
+      Year >= 2014 & Ssyk1_majorlevel == 3 ~ "Associate professionals",
+      Year >= 2014 & Ssyk1_majorlevel == 4 ~ "Administration and customer service",
+      Year >= 2014 & Ssyk2_submajorlevel == 53 ~ "Personal care",
+      Year >= 2014 & (Ssyk2_submajorlevel > 50 & Ssyk2_submajorlevel < 54 | Ssyk2_submajorlevel >= 54 & Ssyk2_submajorlevel < 60) ~ "Service and shop sales",
+      Year >= 2014 & Ssyk1_majorlevel == 6 ~ "Agriculture and forestry",
+      Year >= 2014 & Ssyk2_submajorlevel == 71 ~ "Building",
+      Year >= 2014 & Ssyk2_submajorlevel > 71 & Ssyk2_submajorlevel < 80 ~ "Manufacturing",
+      Year >= 2014 & Ssyk2_submajorlevel == 83 ~ "Transport",
+      Year >= 2014 & (Ssyk2_submajorlevel >= 80 & Ssyk2_submajorlevel < 83 | Ssyk2_submajorlevel >= 84 & Ssyk2_submajorlevel < 90) ~ "Mechanical manufacturing",
+      Year >= 2014 & Ssyk2_submajorlevel == 91 ~ "Cleaners",
+      Year >= 2014 & Ssyk2_submajorlevel > 91 ~ "Other elementary occupations",
+      TRUE ~ NA_character_
+    )
+  ) %>%
+  select(Year, Ssyk1_majorlevel, Ssyk2_submajorlevel, Ssyk3_minorlevel, SSYK) #%>% count(is.na(Ssyk3_minorlevel))
+
+ 
+ 
+  mutate(
+    Year = 2012,
+    Ssyk3_minorlevel = if (length(grep("^Ssyk3", names(.))) > 0) {
+      as.numeric(str_extract(.[[grep("^Ssyk3", names(.))[[1]]]], "\\d+"))
+    } else NA_real_,
+    Ssyk2_submajorlevel = as.numeric(str_sub(Ssyk3_minorlevel, end = 2)),
+    Ssyk1_majorlevel = as.numeric(str_sub(Ssyk3_minorlevel, end = 1)),
+    SSYK = case_when(
+      !is.na(Ssyk1_majorlevel) & Ssyk1_majorlevel == 0 & Year < 2014 ~ "Military",
+      !is.na(Ssyk1_majorlevel) & Ssyk1_majorlevel == 1 & Year < 2014 ~ "Managers",
+      !is.na(Ssyk2_submajorlevel) & Ssyk2_submajorlevel == 21 & Year < 2014 ~ "Science and engineering",
+      !is.na(Ssyk2_submajorlevel) & Ssyk2_submajorlevel == 22 & Year < 2014 ~ "Health care",
+      !is.na(Ssyk2_submajorlevel) & Ssyk2_submajorlevel == 23 & Year < 2014 ~ "Education",
+      !is.na(Ssyk2_submajorlevel) & Ssyk2_submajorlevel >= 24 & Ssyk2_submajorlevel < 30 & Year < 2014 ~ "Other professionals",
+      !is.na(Ssyk1_majorlevel) & Ssyk1_majorlevel == 0 & Year >= 2014 ~ "Military",
+      !is.na(Ssyk1_majorlevel) & Ssyk1_majorlevel == 1 & Year >= 2014 ~ "Managers",
+      !is.na(Ssyk2_submajorlevel) & Ssyk2_submajorlevel == 21 & Year >= 2014 ~ "Science and engineering",
+      !is.na(Ssyk2_submajorlevel) & Ssyk2_submajorlevel == 22 & Year >= 2014 ~ "Health care",
+      !is.na(Ssyk2_submajorlevel) & Ssyk2_submajorlevel == 23 & Year >= 2014 ~ "Education",
+      !is.na(Ssyk2_submajorlevel) & Ssyk2_submajorlevel >= 24 & Ssyk2_submajorlevel < 30 & Year >= 2014 ~ "Other professionals",
+      TRUE ~ NA_character_
+    )
+  ) %>% 
+  select(Ssyk1_majorlevel, Ssyk2_submajorlevel, Ssyk3_minorlevel, SSYK)
+
+  mutate(
+     operatingprofit= case_when(
+    Ftg_Rorelseresultat > 1.5 * median(Ftg_Rorelseresultat, na.rm = TRUE) ~ "High Profit",
+    Ftg_Rorelseresultat > 0 & Ftg_Rorelseresultat <= 1.5 * median(Ftg_Rorelseresultat, na.rm = TRUE) ~ "Moderate Profit",
+    Ftg_Rorelseresultat == 0 ~ "No Change",
+    Ftg_Rorelseresultat < 0 & Ftg_Rorelseresultat >= 1.5 * median(Ftg_Rorelseresultat, na.rm = TRUE) * -1 ~ "Moderate Loss",
+    Ftg_Rorelseresultat < 1.5 * median(Ftg_Rorelseresultat, na.rm = TRUE) * -1 ~ "High Loss",
+    TRUE ~ NA_character_ ), # Handles cases where Ftg_Rorelseresultat might be NA
+    
+    Operating_Profit_Margin = ifelse(Ftg_Nettoomsattning == 0, NA_real_, 
+                                     (Ftg_Rorelseresultat / Ftg_Nettoomsattning) * 100),
+    Operating_Profit_Margin_category = case_when(
+      is.na(Operating_Profit_Margin) ~ "Not Applicable",  # Handles division by zero and other NA cases
+      Operating_Profit_Margin > 20 ~ "High Profitability, >20%",
+      Operating_Profit_Margin > 5 & Operating_Profit_Margin <= 20 ~ "Moderate Profitability, 5% to 20%",
+      #Operating_Profit_Margin > 1 & Operating_Profit_Margin <= 5 ~ "Low Profitability, ",
+      Operating_Profit_Margin >= -5 & Operating_Profit_Margin <= 5 ~ "Breakeven, -5% to 5%",
+      Operating_Profit_Margin < -5 ~ "Loss Making <-5%",
+      TRUE ~ "Uncategorized" 
+    )
+  ) %>% 
+  #  ggplot(aes(as.numeric(Operating_Profit_Margin))) + 
+  #                 geom_histogram(bins=100) +
+  # xlim(c(-100,100))
+# select(Operating_Profit_Margin) %>% arrange(Operating_Profit_Margin)
+  group_by(Profitability_Category) %>% 
+  summarize(mean(Operating_Profit_Margin, na.rm = TRUE), 
+            median(Operating_Profit_Margin, na.rm = TRUE),
+            #median(Operating_Profit_Margin, na.rm = TRUE)*2,
+            min(Operating_Profit_Margin, na.rm = TRUE), 
+            max(Operating_Profit_Margin, na.rm = TRUE),
+            n=n())
+
+%>% mutate(
+if Year<2014
+SSYK = case_when(Ssyk1_majorlevel == 0 ~ "Military",
+                        Ssyk1_majorlevel == 1 ~ "Managers",
+                        Ssyk2_submajorlevel == 21 ~ "Science and engineering",
+                        Ssyk2_submajorlevel == 22 ~ "Health care",
+                        Ssyk2_submajorlevel == 23 ~ "Education",
+                        Ssyk2_submajorlevel >= 24 & Ssyk2_submajorlevel < 30 ~ "Other professionals",
+                        Ssyk1_majorlevel == 3 ~ "Associate professionals",
+                        Ssyk1_majorlevel == 4 ~ "Admninistration and customer service",
+                        Ssyk3_minorlevel == 513  ~ "Personal care",
+                        str_starts(as.character(Ssyk3_minorlevel), "5") ~ "Service and shop sales",
+                        Ssyk1_majorlevel == 6 ~ "Agriculture and forrestry",
+                        Ssyk2_submajorlevel == 71 ~ "Building",
+                        Ssyk2_submajorlevel > 71 & Ssyk2_submajorlevel < 80 ~ "Manufacturing",
+                        Ssyk2_submajorlevel == 83 ~ "Transport",
+                        Ssyk2_submajorlevel >= 80 & Ssyk2_submajorlevel < 83 | Ssyk2_submajorlevel >= 84 & Ssyk2_submajorlevel < 90 ~ "Mechanical manufacturing",
+                        Ssyk2_submajorlevel == 91 ~ "Cleaners",
+                        Ssyk2_submajorlevel > 91 ~ "Other elementary occupations",
+                        TRUE ~ NA_character_),
+
+
+else Year >=2014
+SSYK = case_when(Ssyk1_majorlevel == 0 ~ "Military",
+                        Ssyk1_majorlevel == 1 ~ "Managers",
+                        Ssyk2_submajorlevel == 21 ~ "Science and engineering",
+                        Ssyk2_submajorlevel == 22 ~ "Health care",
+                        Ssyk2_submajorlevel == 23 ~ "Education",
+                        Ssyk2_submajorlevel >= 24 & Ssyk2_submajorlevel < 30 ~ "Other professionals",
+                        Ssyk1_majorlevel == 3 ~ "Associate professionals",
+                        Ssyk1_majorlevel == 4 ~ "Admninistration and customer service",
+                        Ssyk2_submajorlevel == 53 ~ "Personal care",
+                        Ssyk2_submajorlevel > 50 & Ssyk2_submajorlevel < 54 | 
+                        Ssyk2_submajorlevel >= 54 & Ssyk2_submajorlevel < 60 ~ "Service and shop sales",
+                        Ssyk1_majorlevel == 6 ~ "Agriculture and forrestry",
+                        Ssyk2_submajorlevel == 71 ~ "Building",
+                        Ssyk2_submajorlevel > 71 & Ssyk2_submajorlevel < 80 ~ "Manufacturing",
+                        Ssyk2_submajorlevel == 83 ~ "Transport",
+                        Ssyk2_submajorlevel >= 80 & Ssyk2_submajorlevel < 83 | Ssyk2_submajorlevel >= 84 & Ssyk2_submajorlevel < 90 ~ "Mechanical manufacturing",
+                        Ssyk2_submajorlevel == 91 ~ "Cleaners",
+                        Ssyk2_submajorlevel > 91 ~ "Other elementary occupations",
+                        TRUE ~ NA_character_)
+)
+  
+  
+  
+  scb_2009 %>% 
+    mutate(Operating_Profit_Margin = ifelse(
+      "Ftg_Rorelseresultat" %in% names(.) && "Ftg_Nettoomsattning" %in% names(.),
+      ifelse(Ftg_Nettoomsattning != 0, (Ftg_Rorelseresultat / Ftg_Nettoomsattning) * 100, NA_real_),
+      NA_real_
+    ),
+    Operating_Profit_Margin_Category = case_when(
+      Operating_Profit_Margin > 1~ "Profitable, >1%",
+      Operating_Profit_Margin >= -1 & Operating_Profit_Margin <= 1 ~ "Breakeven, -1% to 1%",
+      Operating_Profit_Margin < -1 ~ "Loss, <-1%",
+      TRUE ~ NA_character_
+    )
+    ) %>% count(Operating_Profit_Margin_Category)
+  
+    scb_2009 %>% 
+    mutate(
+    Operating_Profit_Margin = ifelse(Ftg_Nettoomsattning != 0, (Ftg_Rorelseresultat / Ftg_Nettoomsattning) * 100, NA_real_)
+  ) %>%
+  mutate(
+    Operating_Profit_Margin_Category = case_when(
+      Operating_Profit_Margin > 1 ~ "Profitable, >1%",
+      Operating_Profit_Margin >= -1 & Operating_Profit_Margin <= 1 ~ "Breakeven, -1% to 1%",
+      Operating_Profit_Margin < -1 ~ "Loss, <-1%",
+      TRUE ~ NA_character_
+    )
+  )%>% count(Operating_Profit_Margin_Category)
+    
+    
+        scb_2009 %>% select(!c(Ftg_Rorelseresultat)) %>% 
+  mutate(
+    columns_exist = "Ftg_Rorelseresultat" %in% names(.) && "Ftg_Nettoomsattning" %in% names(.),
+    # Temporarily include this to see the outcome of the check
+    Operating_Profit_Margin = ifelse(columns_exist,
+                                     ifelse(Ftg_Nettoomsattning != 0, (Ftg_Rorelseresultat / Ftg_Nettoomsattning) * 100, NA_real_),
+                                     NA_real_),
+    
+        Operating_Profit_Margin_Category = case_when(
+      Operating_Profit_Margin > 1 ~ "Profitable, >1%",
+      Operating_Profit_Margin >= -1 & Operating_Profit_Margin <= 1 ~ "Breakeven, -1% to 1%",
+      Operating_Profit_Margin < -1 ~ "Loss, <-1%",
+      TRUE ~ NA_character_
+  )) %>% select(Operating_Profit_Margin_Category, columns_exist)
+    
+      scb_2009 %>% 
+          mutate(
+    Operating_Profit_Margin = if("Ftg_Rorelseresultat" %in% names(.) && "Ftg_Nettoomsattning" %in% names(.), 
+                                  ifelse(Ftg_Nettoomsattning != 0, (Ftg_Rorelseresultat / Ftg_Nettoomsattning) * 100, NA_real_),
+                                  NA_real_)
+  ) %>%
+  mutate(
+    Operating_Profit_Margin_Category = case_when(
+      Operating_Profit_Margin > 1 ~ "Profitable, >1%",
+      Operating_Profit_Margin >= -1 & Operating_Profit_Margin <= 1 ~ "Breakeven, -1% to 1%",
+      Operating_Profit_Margin < -1 ~ "Loss, <-1%",
+      TRUE ~ NA_character_
+    )
+  )%>% count(Operating_Profit_Margin_Category)
+      
+      # Check for column existence outside the row-wise mutate
+if("Ftg_Rorelseresultat" %in% names(.) && "Ftg_Nettoomsattning" %in% names(.)) {
+  dataset <- dataset %>%
+    rowwise() %>%
+    mutate(
+      Operating_Profit_Margin = ifelse(Ftg_Nettoomsattning != 0, (Ftg_Rorelseresultat / Ftg_Nettoomsattning) * 100, NA_real_)
+    ) %>%
+    ungroup() # Remember to ungroup after rowwise operations
+}
+
+dataset <- dataset %>%
+  mutate(
+    Operating_Profit_Margin_Category = case_when(
+      Operating_Profit_Margin > 1 ~ "Profitable, >1%",
+      Operating_Profit_Margin >= -1 & Operating_Profit_Margin <= 1 ~ "Breakeven, -1% to 1%",
+      Operating_Profit_Margin < -1 ~ "Loss, <-1%",
+      TRUE ~ NA_character_
+    )
+  )
+      
+          Operating_Profit_Margin = ifelse("Ftg_Rorelseresultat" %in% names(.) && "Ftg_Nettoomsattning" %in% names(.) && Ftg_Nettoomsattning != 0, 
+                                     (Ftg_Rorelseresultat / Ftg_Nettoomsattning) * 100, 
+                                     NA_real_),
+    Operating_Profit_Margin_Category = case_when(
+        Operating_Profit_Margin > 1 ~ "Profitable, >1%",
+        Operating_Profit_Margin >= -1 & Operating_Profit_Margin <= 1 ~ "Breakeven, -1% to 1%",
+        Operating_Profit_Margin < -1 ~ "Loss, <-1%",
+        TRUE ~ NA_character_
+    ),
+          
+          
+           scb_2009 %>%  #select(!c(Ftg_Rorelseresultat)) %>% 
+    # Calculate Operating Profit Margin only when columns exist and Ftg_Nettoomsattning is not zero
+  mutate(
+    Operating_Profit_Margin = if ("Ftg_Nettoomsattning" %in% names(.) & Ftg_Nettoomsattning != 0) {
+    Ftg_Rorelseresultat / Ftg_Nettoomsattning * 100
+   } else {
+      NA_real_
+    }
+    # Conditional categorization for Operating Profit Margin.
+    # Operating_Profit_Margin_Category = case_when(
+    #   is.na(Operating_Profit_Margin) ~ NA_character_,
+    #   Operating_Profit_Margin > 1 ~ "Profitable, >1%",
+    #   Operating_Profit_Margin >= -1 & Operating_Profit_Margin <= 1 ~ "Breakeven, -1% to 1%",
+    #   Operating_Profit_Margin < -1 ~ "Loss, <-1%",
+    #   TRUE ~ NA_character_
+    # )
+  ) %>% count(Operating_Profit_Margin)
+          
+          
+          
+                     scb_2009 %>%  select(!c(Ftg_Rorelseresultat)) %>% 
+ mutate(
+    Operating_Profit_Margin = case_when(
+      "Ftg_Rorelseresultat" %in% names(.) & "Ftg_Nettoomsattning" %in% names(.) & Ftg_Nettoomsattning != 0 ~ Ftg_Rorelseresultat / Ftg_Nettoomsattning * 100,
+      TRUE ~ NA_real_
+    ),
+    Operating_Profit_Margin_Category = case_when(
+      is.na(Operating_Profit_Margin) ~ NA_character_,
+      Operating_Profit_Margin > 1 ~ "Profitable, >1%",
+      Operating_Profit_Margin >= -1 & Operating_Profit_Margin <= 1 ~ "Breakeven, -1% to 1%",
+      Operating_Profit_Margin < -1 ~ "Loss, <-1%",
+      TRUE ~ NA_character_
+    )
+  )%>% count(Operating_Profit_Margin_Category)
+                     
+                     
+                     
+scb_2009 %>%  select(!c(Ftg_Rorelseresultat)) %>% 
+  mutate(
+    # Check for column existence and assign NA_real_ if not exists
+    Ftg_Rorelseresultat = if("Ftg_Rorelseresultat" %in% names(.)) Ftg_Rorelseresultat else NA_real_,
+    Ftg_Nettoomsattning = if("Ftg_Nettoomsattning" %in% names(.)) Ftg_Nettoomsattning else NA_real_,
+    # Calculate Operating Profit Margin based on the new conditions
+    Operating_Profit_Margin = if_else(
+      !is.na(Ftg_Rorelseresultat) & !is.na(Ftg_Nettoomsattning) & Ftg_Nettoomsattning != 0, 
+      Ftg_Rorelseresultat / Ftg_Nettoomsattning * 100, 
+      NA_real_
+    ),
+    # Categorize the Operating Profit Margin
+    Operating_Profit_Margin_Category = case_when(
+      is.na(Operating_Profit_Margin) ~ NA_character_,
+      Operating_Profit_Margin > 1 ~ "Profitable, >1%",
+      Operating_Profit_Margin >= -1 & Operating_Profit_Margin <= 1 ~ "Breakeven, -1% to 1%",
+      Operating_Profit_Margin < -1 ~ "Loss, <-1%",
+      TRUE ~ NA_character_
+    )
+  ) %>% 
+  count(Operating_Profit_Margin_Category)
 ```
 
 
-# Function 1 -not used
-read in one dataset 
-split into with and without HPI data, 
-make categories
-save datasets into new folders, 
-remove old data and use gc()
-start over again until all datasets are created 
+# 1 Raw data 
+
+## 1.1 Simplify data
+
+*Why:* To make data more manageable for further aggregation and analyses. 
+
+*How:* 
+- filter those without employment.  
+- Create year variable from file name.  
+- split data into those with and without HPI data and  
+- create new variables based on SCB data.  
+- Finally to save the year based files again.  
+
+*What:* Population data per year from 1990 to 2021   
+
+
 
 ```{r}
 
-
-
-
-hpa <- read_csv(here::here("..", "..","..", "HPI (DNR XXXXXX)", "Data HPI registeruttag 2023", "HPI", "HPI clean", "EEB_hpb_clean_2023-10-16.csv")) %>% select(LopNr)
-
-
-
-
-here::here()
-here::here("..", "..","..", "HPI (DNR XXXXXX)", "Data HPI registeruttag 2023", "SCB", "Leverans", "Leverans_20240306","Leverans1990_2022")
-# Initialize here; it automatically finds your project root
-#here::i_am("path/to/your/project/file.Rproj") # Adjust this to point to your actual R project file
-
-# Assuming 'hpa' dataframe is loaded with the LopNr of interest
-interested_LopNr <- hpa %>% pull(LopNr)
-
-# Construct the base path to the data directory
-data_base_path <- here::here("..", "..","..", "HPI (DNR XXXXXX)", "Data HPI registeruttag 2023", "SCB", "Leverans", "Leverans_20240306","Leverans1990_2022")
-
-# Define the target folder for saving filtered CSV files
-output_folder_with <- here::here("..", "..","..", "HPI (DNR XXXXXX)", "Data HPI registeruttag 2023", "SCB", "Leverans", "Leverans_20240306","with_hpi_lopnr")
-
-output_folder_without <- here::here("..", "..","..", "HPI (DNR XXXXXX)", "Data HPI registeruttag 2023", "SCB", "Leverans", "Leverans_20240306","without_hpi_lopnr")
-
-# Define the years of interest
-years <- 1990:2022
-
-# Generate file paths for each year
-file_paths <- map(years, ~ file.path(data_base_path, str_glue("eeb_lev_{.x}.sas7bdat")))
-
-# Process each file
-map(file_paths, ~{
-  file_path <- .x
-    year <- str_extract(basename(file_path), "\\d{4}") # Extract the year from the file name
-
-  data <- read_sas(file_path) %>%
-    mutate(Year = year) # Add the Year variable
-  
-  # Filter data for the interested LopNr and save
-  filtered_data <- filter(data, LopNr %in% interested_LopNr)
-  csv_path_filtered <-  file.path(output_folder_with, paste("with_HPI_data_", year, ".csv", sep="")) 
-  write_csv(filtered_data, csv_path_filtered)
-  
-  # Filter out the interested LopNr and save
-  excluded_data <- filter(data, !LopNr %in% interested_LopNr)
-  csv_path_excluded <- csv_path_excluded <- file.path(output_folder_without, paste("without_HPI_data_", year, ".csv", sep="")) 
-  write_csv(excluded_data, csv_path_excluded)
-})
-# Note: To combine filtered data from all files into one dataframe, 
-# you would read from the _filtered.csv files similarly to previous examples
-filtered_csv_paths <- list.files(here::here(), pattern = "_filtered\\.csv$", full.names = TRUE)
-combined_filtered_data <- map_dfr(filtered_csv_paths, read_csv, .id = "source")
-
-# Now, `combined_filtered_data` contains all the filtered data combined
-
-
-
-
-# 
-# str_replace(output_folder_with, "sas7bdat$", "with_HPI_data.csv")
-# str_replace(output_folder_without, "sas7bdat$", "without_HPI_data")
-# 
-# 
-# csv_path_filtered <- file.path(output_folder_with, paste("with_HPI_data_", year, ".csv", sep=""))
-# csv_path_excluded <- file.path(output_folder_without, paste("without_HPI_data_", year, ".csv", sep=""))
-
-```
-
-
-
-# Function 2
-read in one dataset 
-split into with and without HPI data, 
-add birthyear, fodelseland and sex from grunduppgifter and mutate new variables
-make categories
-save datasets into new folders, 
-remove old data and use gc()
-start over again until all datasets are created 
-
-```{r}
-
-
+library(tidyverse)
+library(haven)
+library(here)
 
 # Load datasets
 hpa <- read_csv(here::here("..", "..","..", "HPI (DNR XXXXXX)", "Data HPI registeruttag 2023", "HPI", "HPI clean", "EEB_hpb_clean_2023-10-16.csv")) %>% select(LopNr)
@@ -241,7 +572,7 @@ rural_municipalities <- c("125", "128", "188", "192", "319", "331", "360", "382"
 
 
 
-# Run function for conditional filter for syssälsäätningsstatus
+# Run function for conditional filter for syssälsätningsstatus
 
 add_conditional_syssstat_filters <- function(data) {
   # Define the SyssStat* variables you're interested in
@@ -277,6 +608,9 @@ output_folder_without <- here::here("..", "..","..", "HPI (DNR XXXXXX)", "Data H
 # Define the years of interest
 years <- 1990:2021
 
+
+
+
 # Generate file paths for each year
 file_paths <- map(years, ~ file.path(data_base_path, str_glue("eeb_lev_{.x}.sas7bdat")))
 
@@ -285,7 +619,7 @@ map(file_paths, ~{
   file_path <- .x
     year <- str_extract(basename(file_path), "\\d{4}") # Extract the year from the file name
 
-  data <- read_sas(file_path) %>%
+  data <- haven::read_sas(file_path) %>%
     left_join(grunduppgifter) %>% 
   mutate(
     Year = as.numeric(year), # Add the Year variable
@@ -293,6 +627,8 @@ map(file_paths, ~{
     Age = Year - FodelseAr
   ) %>% 
   filter(Age > 17) %>%
+  filter(LoneInk != 0 | !is.na(LoneInk)) %>% 
+  filter(AntAns != 0 | !is.na(AntAns)) %>% # antal förvärvskällor
   add_conditional_syssstat_filters() %>% 
     # add join key for SNI
       mutate(
@@ -306,7 +642,7 @@ map(file_paths, ~{
       if("AstSNI92" %in% names(.)) !is.na(AstSNI92) ~ str_c("AstSNI92", substr(AstSNI92, 1, 2)),
       TRUE ~ NA_character_
     )) %>% 
-      # Join the key, with SNI_group, avdelning_samstammig
+      # Join the key, with SNI_group, avdelning_samstammig, SNI_group includes the categories that will be used in further analyses
      left_join(translation_key_df, by = "join_key") %>%  
       select(-join_key) %>% 
   mutate(
@@ -317,75 +653,182 @@ map(file_paths, ~{
       TRUE ~ ">65"
     ),
     Sex = Kon,
-    BirthPlace = case_when(
-      FodelseLand_EU28 == "Sverige" ~ "Sweden",
-      FodelseLand_EU28 %in% c("EU utom Norden", "Europa utom EU och Norden", "Norden utom Sverige") ~ "Europe",
-      FodelseLand_EU28 %in% 'Okänt'  ~ NA_character_,
-      TRUE ~ "Outside Europe"
+    Place_of_origin = case_when(
+  FodelseLand_EU28 == "Sverige" ~ "Sweden",
+  FodelseLand_EU28 %in% c("EU28 utom Norden", "Europa utom EU28 och Norden", "Norden utom Sverige") ~ "Europe",
+  FodelseLand_EU28 %in% c("Afrika", "Asien", "Nordamerika", "Oceanien", "Sydamerika", "Sovjetunionen") ~ "Outside Europe",
+  FodelseLand_EU28 == "Okänt" ~ NA_character_,
+  FodelseLand_EU28 == "" ~ NA_character_, 
+  FodelseLand_EU28 == "Statslös" ~ NA_character_,
+  TRUE ~ NA_character_
     ),
-    MarriedOrPartner = case_when(
-      Civil %in% c("G", "RP") ~ "Partner",  # Married or Registered Partner
-      Civil %in% c("OG", "S", "Ä", "SP", "EP") ~ "Single",  # Other categories
+    Civil_status = case_when(
+      Civil %in% c("G", "RP", "0", "2", "3", "7") ~ "Partner",  # Married or Registered Partner
+      Civil %in% c("OG", "S", "Ä", "SP", "EP", "1", "4", "5", "8", "9") ~ "Single",  # Other categories
       TRUE ~ NA_character_  # Assign NA to cases that do not match any condition
     ),
+  Kommun = as.numeric(Kommun),
     KommunSize = case_when(
-    Kommun %in% metropolitan_municipalities ~ "metropolitan_municipalities",
-    Kommun %in% dense_municipalities ~ "dense_municipalities",
-    Kommun %in% rural_municipalities ~ "rural_municipalities",
+    Kommun %in% metropolitan_municipalities ~ "Metropolitan municipalities",
+    Kommun %in% dense_municipalities ~ "Dense municipalities",
+    Kommun %in% rural_municipalities ~ "Rural municipalities",
     TRUE ~ NA_character_
   ),
-    EducationLevel = if ("Sun2000niva_old" %in% names(.)) {
-        case_when(
-          Sun2000niva_old %in% c("1", "2") ~ "Primary",
-          Sun2000niva_old %in% c("3", "4") ~ "Secondary",
-          Sun2000niva_old == "5" ~ "Tertiary <2 years",
-          Sun2000niva_old %in% c("6", "7") ~ "Higher Education",
-          TRUE ~ NA_character_
-        )
-      } else if ("Sun2020niva_old" %in% names(.)) {
-        case_when(
-          Sun2020niva_Old %in% c("1", "2") ~ "Primary",
-          Sun2020niva_Old %in% c("3", "4") ~ "Secondary",
-          Sun2020niva_Old == "5" ~ "Tertiary <2 years",
-          Sun2020niva_Old %in% c("6", "7") ~ "Higher Education",
-          TRUE ~ NA_character_
-        )
-      } else NA_character_,
+
+  
+    # EducationLevel = if ("Sun2000niva_old" %in% names(.)) {
+    #     case_when(
+    #       Sun2000niva_old %in% c("1", "2") ~ "Primary",
+    #       Sun2000niva_old %in% c("3", "4") ~ "Secondary",
+    #       Sun2000niva_old == "5" ~ "Tertiary <2 years",
+    #       Sun2000niva_old %in% c("6", "7") ~ "Higher Education",
+    #       TRUE ~ NA_character_
+    #     )
+    #   } else if ("Sun2020niva_Old" %in% names(.)) {
+    #     case_when(
+    #       Sun2020niva_Old %in% c("1", "2") ~ "Primary",
+    #       Sun2020niva_Old %in% c("3", "4") ~ "Secondary",
+    #       Sun2020niva_Old == "5" ~ "Tertiary <2 years",
+    #       Sun2020niva_Old %in% c("6", "7") ~ "Higher Education",
+    #       TRUE ~ NA_character_
+    #     )
+    #   } else NA_character_,
+  
+   # Dynamically assign edu based on the existence of Sun2020niva_old or Sun2000niva_old
+    edu = if("Sun2020niva_Old" %in% names(.)) as.character(Sun2020niva_Old) else 
+      if("Sun2000niva_Old" %in% names(.)) as.character(Sun2000niva_Old) else 
+            if("Sun2000niva_old" %in% names(.)) as.character(Sun2000niva_old) else 
+              NA_character_,
+    # Since edu is now guaranteed to be assigned, we can directly categorize it
+    EducationLevel = case_when(
+      edu %in% c("1", "2") ~ "Primary",
+      edu %in% c("3", "4") ~ "Secondary",
+      #edu == "5" ~ "Tertiary <2 years",
+      edu %in% c("5", "6", "7") ~ "Tertiary",
+      TRUE ~ NA_character_
+    ),
   
    Ownership_sector = if ("InstKod" %in% names(.)) {
       case_when(
+        is.na(InstKod) ~ NA_character_,
+        #"0000000000" ~ NA_character_,
+        #"" ~ NA_character_,
         substr(InstKod, 3, 3) %in% c("1") ~ "Public Govermental",
         substr(InstKod, 3, 3) %in% c("2") ~ "Public Regional",
-        TRUE ~ "Private"
+        substr(InstKod, 3, 3) %in% c("9") ~ "Private",
+        TRUE ~ NA_character_
       )
     } else if ("InstKod6" %in% names(.)) {
       case_when(
+        is.na(InstKod6) ~ NA_character_,
         substr(InstKod6, 4, 4) %in% c("1") ~ "Public Govermental",
         substr(InstKod6, 4, 4) %in% c("2") ~ "Public Regional",
-        TRUE ~ "Private"
+        substr(InstKod6, 4, 4) %in% c("9") ~ "Private",
+        TRUE ~ NA_character_
       )
     } else if ("InstKod7" %in% names(.)) {
       case_when(
+         is.na(InstKod7) ~ NA_character_,
         substr(InstKod7, 4, 5) %in% c("10") ~ "Public Govermental",
         substr(InstKod7, 4, 5) %in% c("20", "30") ~ "Public Regional",
-        TRUE ~ "Private"
+        substr(InstKod7, 4, 5) %in% c("41", "42", "50") ~ "Private",
+        TRUE ~ NA_character_
       )
     } else if ("InstKod10" %in% names(.)) {
       case_when(
-        substr(InstKod10, 4, 5) %in% c("10") ~ "Public Govermental",
-        substr(InstKod10, 4, 5) %in% c("20", "30") ~ "Public Regional",
-        TRUE ~ "Private"
+         is.na(InstKod10) ~ NA_character_,
+        substr(InstKod10, 7, 8) %in% c("10") ~ "Public Govermental",
+        substr(InstKod10, 7, 8) %in% c("20", "30") ~ "Public Regional",
+        substr(InstKod10, 7, 8) %in% c("41", "42", "50") ~ "Private",
+        TRUE ~ NA_character_
       )
     } else {
       NA_character_
     },
+     Ssyk3_2012_J16_pop = if ("Ssyk3_2012_J16" %in% names(.)) {
+     Ssyk3_2012_J16
+   } else {
+      NA_character_
+    },
+   Ssyk3_J16_pop = if("Ssyk3_J16" %in% names(.)) {
+     Ssyk3_J16
+   } else {
+      NA_character_
+    },
+     Ssyk3_pop = if("Ssyk3" %in% names(.)) {
+     Ssyk3
+   } else {
+      NA_character_
+    },
   
-      Ssyk_majorlevel = if (length(grep("^Ssyk3", names(.))) > 0) {
-    as.numeric(str_extract(.[[grep("^Ssyk3", names(.))[[1]]]], "^\\d"))
-  } else NA # Or some other default value or handling
+  SsykAr = if("SsykAr" %in% names(.)) SsykAr else 
+    if("SsykAr_J16" %in% names(.)) SsykAr_J16 else 
+    NA_character_,
+  # ifelse - nested in a way that each condition is only evaluated if the previous condition was not met
+      Ssyk3_minorlevel = ifelse(
+      is.na(SsykAr), NA_character_,
+      ifelse(
+        SsykAr > 2000 & SsykAr <= 2009 & "Ssyk3" %in% names(.), Ssyk3,
+        ifelse(
+          SsykAr > 2010 & SsykAr <= 2013 & "Ssyk3_J16" %in% names(.), Ssyk3_J16,
+          ifelse(
+            SsykAr > 2013 & "Ssyk3_2012_J16" %in% names(.), Ssyk3_2012_J16,
+            NA_character_
+          )
+        )
+      )
+    ),
+  Ssyk3_minorlevel = as.numeric(Ssyk3_minorlevel),
+  # Ssyk3_minorlevel = if (length(grep("^Ssyk3", names(.))) > 0) {
+  #     as.numeric(str_extract(.[[grep("^Ssyk3", names(.))[[1]]]], "\\d+"))
+  #   } else NA_real_, # Using NA_real_ to explicitly denote numeric NA
+  Ssyk2_submajorlevel = as.numeric(str_sub(Ssyk3_minorlevel, end = 2)),
+  Ssyk1_majorlevel = as.numeric(str_sub(Ssyk3_minorlevel, end = 1)),
+  
+        SSYK =  if (length(grep("^Ssyk3", names(.))) > 0) {
+ SSYK = case_when(
+      # SSYK96, pre 2014
+      SsykAr < 2014 & Ssyk1_majorlevel == 0 ~ "Military",
+      SsykAr < 2014 & Ssyk1_majorlevel == 1 ~ "Managers",
+      SsykAr < 2014 & Ssyk2_submajorlevel == 21 ~ "Science and engineering",
+      SsykAr < 2014 & Ssyk2_submajorlevel == 22 ~ "Health care",
+      SsykAr < 2014 & Ssyk2_submajorlevel == 23 ~ "Education",
+      SsykAr < 2014 & Ssyk2_submajorlevel >= 24 & Ssyk2_submajorlevel < 30 ~ "Other professionals",
+      SsykAr < 2014 & Ssyk1_majorlevel == 3 ~ "Associate professionals",
+      SsykAr < 2014 & Ssyk1_majorlevel == 4 ~ "Administration and customer service",
+      SsykAr < 2014 & Ssyk3_minorlevel == 513 ~ "Personal care",
+      SsykAr < 2014 & str_starts(as.character(Ssyk3_minorlevel), "5") ~ "Service and shop sales",
+      SsykAr < 2014 & Ssyk1_majorlevel == 6 ~ "Agriculture and forestry",
+      SsykAr < 2014 & Ssyk2_submajorlevel == 71 ~ "Building",
+      SsykAr < 2014 & Ssyk2_submajorlevel > 71 & Ssyk2_submajorlevel < 80 ~ "Manufacturing",
+      SsykAr < 2014 & Ssyk2_submajorlevel == 83 ~ "Transport",
+      SsykAr < 2014 & (Ssyk2_submajorlevel >= 80 & Ssyk2_submajorlevel < 83 | Ssyk2_submajorlevel >= 84 & Ssyk2_submajorlevel < 90) ~ "Mechanical manufacturing",
+      SsykAr < 2014 & Ssyk2_submajorlevel == 91 ~ "Cleaners",
+      SsykAr < 2014 & Ssyk2_submajorlevel > 91 ~ "Other elementary occupations",
+      # SSYK2012, post 2013
+      SsykAr >= 2014 & Ssyk1_majorlevel == 0 ~ "Military",
+      SsykAr >= 2014 & Ssyk1_majorlevel == 1 ~ "Managers",
+      SsykAr >= 2014 & Ssyk2_submajorlevel == 21 ~ "Science and engineering",
+      SsykAr >= 2014 & Ssyk2_submajorlevel == 22 ~ "Health care",
+      SsykAr >= 2014 & Ssyk2_submajorlevel == 23 ~ "Education",
+      SsykAr >= 2014 & Ssyk2_submajorlevel >= 24 & Ssyk2_submajorlevel < 30 ~ "Other professionals",
+      SsykAr >= 2014 & Ssyk1_majorlevel == 3 ~ "Associate professionals",
+      SsykAr >= 2014 & Ssyk1_majorlevel == 4 ~ "Administration and customer service",
+      SsykAr >= 2014 & Ssyk2_submajorlevel == 53 ~ "Personal care",
+      SsykAr >= 2014 & (Ssyk2_submajorlevel > 50 & Ssyk2_submajorlevel < 54 | Ssyk2_submajorlevel >= 54 & Ssyk2_submajorlevel < 60) ~ "Service and shop sales",
+      SsykAr >= 2014 & Ssyk1_majorlevel == 6 ~ "Agriculture and forestry",
+      SsykAr >= 2014 & Ssyk2_submajorlevel == 71 ~ "Building",
+      SsykAr >= 2014 & Ssyk2_submajorlevel > 71 & Ssyk2_submajorlevel < 80 ~ "Manufacturing",
+      SsykAr >= 2014 & Ssyk2_submajorlevel == 83 ~ "Transport",
+      SsykAr >= 2014 & (Ssyk2_submajorlevel >= 80 & Ssyk2_submajorlevel < 83 | Ssyk2_submajorlevel >= 84 & Ssyk2_submajorlevel < 90) ~ "Mechanical manufacturing",
+      SsykAr >= 2014 & Ssyk2_submajorlevel == 91 ~ "Cleaners",
+      SsykAr >= 2014 & Ssyk2_submajorlevel > 91 ~ "Other elementary occupations",
+      TRUE ~ NA_character_
+      )
+    } else NA_character_
   ) %>% 
   mutate(
-    IncomeLevel = case_when(
+    IncomeLevel_CSFVI = case_when(
       CSFVI >= 2 * median(CSFVI, na.rm = TRUE) ~ "≥200%",
       CSFVI >= 1.2 * median(CSFVI, na.rm = TRUE) & CSFVI < 2 * median(CSFVI, na.rm = TRUE) ~ "120–199%",
       CSFVI >= 0.8 * median(CSFVI, na.rm = TRUE) & CSFVI < 1.2 * median(CSFVI, na.rm = TRUE) ~ "80–119%",
@@ -393,7 +836,7 @@ map(file_paths, ~{
       CSFVI < 0.6 * median(CSFVI, na.rm = TRUE) ~ "<60%",
       TRUE ~ NA_character_
     ),
-    LoneInk_grupp = case_when(
+    IncomeLevel = case_when(
       LoneInk >= 2 * median(LoneInk, na.rm = TRUE) ~ "≥200%",
       LoneInk >= 1.2 * median(LoneInk, na.rm = TRUE) & LoneInk < 2 * median(LoneInk, na.rm = TRUE) ~ "120–199%",
       LoneInk >= 0.8 * median(LoneInk, na.rm = TRUE) & LoneInk < 1.2 * median(LoneInk, na.rm = TRUE) ~ "80–119%",
@@ -425,61 +868,65 @@ map(file_paths, ~{
       )
     } else NA_character_,
     
-    net_sales_category = if ("Ftg_Nettoomsattning" %in% names(.)) {
-      median_Ftg_Nettoomsattning <- median(Ftg_Nettoomsattning, na.rm = TRUE)
-      case_when(
-        Ftg_Nettoomsattning >= 2 * median_Ftg_Nettoomsattning ~ "≥200%",
-        Ftg_Nettoomsattning >= 1.2 * median_Ftg_Nettoomsattning & Ftg_Nettoomsattning < 2 * median_Ftg_Nettoomsattning ~ "120–199%",
-        Ftg_Nettoomsattning >= 0.8 * median_Ftg_Nettoomsattning & Ftg_Nettoomsattning < 1.2 * median_Ftg_Nettoomsattning ~ "80–119%",
-        Ftg_Nettoomsattning >= 0.6 * median_Ftg_Nettoomsattning & Ftg_Nettoomsattning < 0.8 * median_Ftg_Nettoomsattning ~ "60–79%",
-        Ftg_Nettoomsattning < 0.6 * median_Ftg_Nettoomsattning ~ "<60%",
-        TRUE ~ NA_character_
-      )
-    } else NA_character_,
+    Operatingprofit_category = if ("Ftg_Rorelseresultat" %in% names(.)) {
+  median_value <- median(Ftg_Rorelseresultat, na.rm = TRUE)
+  case_when(
+    Ftg_Rorelseresultat > 5 * median_value ~ ">500%",
+    Ftg_Rorelseresultat >= 0 & Ftg_Rorelseresultat <= 5 * median_value ~ "0% to 500%",
+    Ftg_Rorelseresultat < 0 & Ftg_Rorelseresultat > -5 * median_value ~ "-500% to 0%",
+    Ftg_Rorelseresultat <= -5 * median_value ~ "<-500%",
+    TRUE ~ NA_character_ 
+  )
+} else NA_character_, 
+        # Check for column existence and assign NA_real_ if not exists
+    Ftg_Rorelseresultat = if("Ftg_Rorelseresultat" %in% names(.)) Ftg_Rorelseresultat else NA_real_,
+    Ftg_Nettoomsattning = if("Ftg_Nettoomsattning" %in% names(.)) Ftg_Nettoomsattning else NA_real_,
     
-        operating_profit_category = if ("Ftg_Rorelseresultat" %in% names(.)) {
-      # Directly using median in case_when conditions
-      case_when(
-        Ftg_Rorelseresultat >= 2 * median(Ftg_Rorelseresultat, na.rm = TRUE) ~ "≥200%",
-        Ftg_Rorelseresultat >= 1.2 * median(Ftg_Rorelseresultat, na.rm = TRUE) & Ftg_Rorelseresultat < 2 * median(Ftg_Rorelseresultat, na.rm = TRUE) ~ "120–199%",
-        Ftg_Rorelseresultat >= 0.8 * median(Ftg_Rorelseresultat, na.rm = TRUE) & Ftg_Rorelseresultat < 1.2 * median(Ftg_Rorelseresultat, na.rm = TRUE) ~ "80–119%",
-        Ftg_Rorelseresultat >= 0.6 * median(Ftg_Rorelseresultat, na.rm = TRUE) & Ftg_Rorelseresultat < 0.8 * median(Ftg_Rorelseresultat, na.rm = TRUE) ~ "60–79%",
-        Ftg_Rorelseresultat < 0.6 * median(Ftg_Rorelseresultat, na.rm = TRUE) ~ "<60%",
-        TRUE ~ NA_character_
-      )
-    } else NA_character_,
+     Ftg_Nettoomsattning = if_else(Ftg_Nettoomsattning == 0, 0.1, Ftg_Nettoomsattning),
+    # Calculate Operating Profit Margin based on the new conditions
+    Operating_Profit_Margin = if_else(
+      !is.na(Ftg_Rorelseresultat) & !is.na(Ftg_Nettoomsattning) & Ftg_Nettoomsattning != 0, 
+      Ftg_Rorelseresultat / Ftg_Nettoomsattning * 100, 
+      NA_real_
+    ),
+    # Categorize the Operating Profit Margin
+    Operating_Profit_Margin_Category = case_when(
+      Ftg_Nettoomsattning == 0 ~ "No Sales",
+      is.na(Operating_Profit_Margin) ~ NA_character_,
+      Operating_Profit_Margin > 5 ~ ">5%",
+      Operating_Profit_Margin >= 0 & Operating_Profit_Margin <= 5 ~ "0% to 5%",
+      Operating_Profit_Margin >= -5 & Operating_Profit_Margin < 0 ~ "-5% to 0%",
+      Operating_Profit_Margin < -5 ~ "<-5%",
+      TRUE ~ NA_character_
+    ),
+    
     Number_of_employees_Category = case_when(
-    Ast_AntalSys >= 1 & Ast_AntalSys <= 9 ~ "Micro-Enterprises: 1-9 employees",
-    Ast_AntalSys >= 10 & Ast_AntalSys <= 49 ~ "Small Enterprises: 10-49 employees",
-    Ast_AntalSys >= 50 & Ast_AntalSys <= 249 ~ "Medium-Sized Enterprises: 50-249 employees",
-    Ast_AntalSys >= 250 ~ "Large Enterprises: 250+ employees",
+    Ast_AntalSys >= 1 & Ast_AntalSys <= 9 ~ "1 to 9",
+    Ast_AntalSys >= 10 & Ast_AntalSys <= 49 ~ "10 to 49",
+    Ast_AntalSys >= 50 & Ast_AntalSys <= 249 ~ "50 to 249",
+    Ast_AntalSys >= 250 ~ "≥250",
     TRUE ~ NA_character_
            ),
     Income_Sources_Category = case_when(
-    AntAns == 0 ~ "No Income Sources",
-    AntAns == 1 ~ "Single Income Source",
-    AntAns >= 2 & AntAns <= 3 ~ "Multiple Income Sources: 2-3",
-    AntAns >= 4 & AntAns <= 5 ~ "Diverse Income Sources: 4-5",
-    AntAns >= 6 ~ "Highly Diverse Income Sources: 6+",
+    AntAns == 1 ~ "1",
+    AntAns >= 2 & AntAns <= 3 ~ "2 to 3",
+    AntAns >= 4 ~ "≥4",
     TRUE ~ NA_character_ # For handling NA values
   ),
   Turnover_Rate_Category = case_when(
-    PersOms_Harledd == 0 ~ "No Turnover",
-    PersOms_Harledd > 0 & PersOms_Harledd <= 1 ~ "Very Low Turnover (0.1-1.0)",
-    PersOms_Harledd > 1 & PersOms_Harledd <= 2 ~ "Low Turnover (1.1-2.0)",
-    PersOms_Harledd > 2 & PersOms_Harledd <= 5 ~ "Moderate Turnover (2.1-5.0)",
-    PersOms_Harledd > 5 & PersOms_Harledd <= 10 ~ "High Turnover (5.1-10.0)",
-    PersOms_Harledd > 10 & PersOms_Harledd <= 20 ~ "Very High Turnover (10.1-20.0)",
-    PersOms_Harledd > 20 ~ "Extremely High Turnover (20.1+)",
+    PersOms_Harledd < 10 ~ "<10%",
+    PersOms_Harledd >= 10 & PersOms_Harledd < 20 ~ "10% to 20%",
+    PersOms_Harledd >= 20 ~ "≥20%",
     TRUE ~ NA_character_ # For handling NA or unexpected values
-  ),
-  Turnover_Rate_Percent = (PersOms_Harledd / Ast_AntalSys) * 100
+  )
       # Operating_Margin_Percent = ifelse(
       # all(c("Ftg_Rorelseresultat", "Ftg_Nettoomsattning") %in% names(.)) & Ftg_Nettoomsattning != 0,
       # (Ftg_Rorelseresultat / Ftg_Nettoomsattning) * 100,
       # NA_real_ # Assign NA if Net Sales is zero or columns do not exist
   #  )
            )
+  
+  gc()
   
   # Filter data for the interested LopNr and save
   filtered_data <- filter(data, LopNr %in% interested_LopNr)
@@ -497,7 +944,7 @@ map(file_paths, ~{
 
 
 
-# Note: To combine filtered data from all files into one dataframe, 
+# Combine filtered data from all files into one dataframe, 
 # you would read from the _filtered.csv files similarly to previous examples
 filtered_csv_paths <- list.files(here::here(), pattern = "_filtered\\.csv$", full.names = TRUE)
 combined_filtered_data <- map_dfr(filtered_csv_paths, read_csv, .id = "source")
@@ -507,123 +954,28 @@ combined_filtered_data <- map_dfr(filtered_csv_paths, read_csv, .id = "source")
 
 ```
 
-# Function 8 
-Extract income data for those who performes an HPA, income data is used to select the study sample
 
-LoneInk	Kontant bruttolön m.m.
-LonFInk	Löne- eller företagarinkomst
-CSFVI	Sammanräknad förvärvsinkomst -  en individs arbetsinkomster (före skatter och transfereringar, men inklusive inkomster från sociala försäkringar knutna till att arbeta, så som arbetslöshetsersättning, sjukpenning,
-etc.)
 
-LoneInk: Likely refers to cash gross salary including various forms of cash compensation before taxes.
-LonFInk: Appears to encompass both employment income and business income, including profits from self-employment or business ownership.
-CSFVI: Indicates a combined or aggregated measure of earned income from possibly multiple sources or income streams.
+## 1.2 Precarious employment 
 
-```{r}
+*Why:* To get an marker of precarious employment, 
 
-library(here)
-library(readr)
-library(dplyr)
+*How:* 
+- Iterates over years 1991 to 2021 to load and process raw data, (Ssystat 1,5).  
+- Combines all yearly data frames into a single data frame (all_data).  
+- Filters another dataset (hpab) based on the presence of specific health-related parameters and previous selections, arranging and marking initial health parameter assessments for further analysis.  
+- Processes work_duration_with and work_duration_without datasets to classify work durations into sequences and categories based on consecutive years worked and random sampling within year groups.  
+- Writes processed data for "with HPI" and "without HPI" scenarios to CSV files.  
+- Summarizes work duration data by year group and and category, calculating totals and percentages, and prepares data for output.  
+- Writes summarized work duration data to CSV files for both "with HPI" and "without HPI" scenarios.  
 
-input_folder <- here("..", "..","..", "HPI (DNR XXXXXX)", "Data HPI registeruttag 2023", "SCB", "Leverans", "Leverans_20240306", "with_hpi_lopnr", "2.filtered")
-output_folder <- here("..", "..","..", "HPI (DNR XXXXXX)", "Data HPI registeruttag 2023", "SCB", "Leverans", "Leverans_20240306", "with_hpi_lopnr", "6.income_variables")
-
-hpa <- read_csv(here::here("..", "..","..", "HPI (DNR XXXXXX)", "Data HPI registeruttag 2023", "HPI", "HPI clean", "EEB_hpb_clean_2023-10-16.csv")) %>% select(LopNr, Year, Performed) 
-
-data_list <- list()
-years <- 1990:2021
-
-for (year in years) {
-  file_name <- sprintf("with_HPI_data_categories%d.csv", year)
-  full_path <- file.path(input_folder, file_name)
-  
-  # Load the dataset
-  temp_data <- read_csv(full_path, show_col_types = FALSE)
-  
-  # Check if 'ArsLonFInk' exists and rename it to 'LonFInk' if it does
-  if("ArsLonFInk" %in% names(temp_data)) {
-    temp_data <- temp_data %>% rename(LonFInk = ArsLonFInk)
-  }
-  
-  # Ensure only the required columns are selected/retained and add the year column
-  temp_data <- temp_data %>%
-    mutate(year = year) %>%
-    select(LopNr, year, LoneInk, LonFInk) %>% 
-    distinct(LopNr, year, .keep_all = TRUE)
-  
-    # Check for parsing issues
-  # parsing_problems <- problems(temp_data)
-  # if (nrow(parsing_problems) > 0) {
-  #   print(paste("Year:", year, "- Found", nrow(parsing_problems), "parsing issues."))
-  #   print(head(parsing_problems))
-  # }
-  # check for problems reading files
-  print(paste("Reading file for year:", year, "with", nrow(temp_data), "rows."))
-
-  
-  # Append the processed data to the list
-  data_list[[as.character(year)]] <- temp_data
-}
-
-# Combine all data frames into a single data frame
-all_data <- bind_rows(data_list)
-
-all_data %>% filter(year==2021) %>% print(n=100)
-
-# Joining all_data with hpa dataset
-final_data <- hpa %>% left_join(all_data, by = c("LopNr", "Year" = "year")) %>% 
-  mutate(n=n(), .by = c(LopNr, Performed)) %>% filter(n==1) 
+*What:* Working in the same company for less than three years (two or one year).  
 
 
 
 
-# Optionally, write the final_data to a file in the output_folder
-write_csv(final_data, file.path(output_folder, "income_data.csv"))
 
 
-
-
-temp_ <- read_csv( here("..", "..","..", "HPI (DNR XXXXXX)", "Data HPI registeruttag 2023", "SCB", "Leverans", "Leverans_20240306", "with_hpi_lopnr", "2.filtered", "with_HPI_data_categories2020.csv"), show_col_types = FALSE)
-
-# Check for parsing problems
-parsing_issues <- problems(data_list)
-if(nrow(parsing_issues) > 0) {
-  print(parsing_issues)
-}
-
-
-
-# Check for duplicates in `all_data`
-duplicates_all_data <- all_data %>%
-  count(LopNr, year) %>%
-  filter(n > 1)
-final_data %>% filter(is.na(LoneInk))
-all_data %>% filter(LopNr==234487 | LopNr==246693) %>% print(n=100)
-# Check for duplicates in `hpa`
-duplicates_hpa <- hpa %>%
-  count(LopNr, Year) %>%
-  filter(n > 1)
-
-# View the results
-print("Duplicates in all_data:")
-print(duplicates_all_data)
-
-print("Duplicates in hpa:")
-print(duplicates_hpa)
-
-```
-
-
-
-# Function 7
-If having a same employer for more or less than 2 years
-
-Read in 5 dataset without hpi data
-bind or merge the five datasets, 
-(SyssStat 1 or 5)
-join with scb_grunduppgifter where (year of HPA)
-extract each year of LopNr_Arbstld
-into hpi vs without data
 ```{r}
 
 
@@ -659,6 +1011,7 @@ base_path <- here("..", "..", "..", "HPI (DNR XXXXXX)", "Data HPI registeruttag 
 data_list <- list()
 
 years <- 1991:2021
+
 
 for (year in years) {
   file_name <- sprintf("eeb_lev_%d.sas7bdat", year)
@@ -736,8 +1089,8 @@ work_duration_with %>%
   mutate(consecutive_years = row_number() - 1) %>%
   ungroup() %>% 
   mutate(consecutive_years_category = case_when(
-    consecutive_years >= 2 ~ ">=2 years",
-    consecutive_years  < 2 ~ "<2 years",
+    consecutive_years >= 3 ~ ">=3 years",
+    consecutive_years  < 3 ~ "<3 years",
     TRUE ~ NA_character_
   ),
    year_group = case_when(
@@ -776,8 +1129,8 @@ work_duration_without %>%
   mutate(consecutive_years = row_number() - 1) %>%
   ungroup() %>% 
   mutate(consecutive_years_category = case_when(
-    consecutive_years >= 2 ~ ">=2 years",
-    consecutive_years  < 2 ~ "<2 years",
+    consecutive_years >= 3 ~ ">=3 years",
+    consecutive_years  < 3 ~ "<3 years",
     TRUE ~ NA_character_
   ),
    year_group = case_when(
@@ -836,23 +1189,146 @@ write_csv(duration_seq_without_sum, here::here("..", "..","..", "HPI (DNR XXXXXX
 ```
 
 
-# Function 3 without hpi data
-summarize data into 5 year groups for those without HPI data
 
 
 
-Read in 5 dataset without hpi data, 
-bind or merge the five datasets, 
-filter each row with 1 or 5 in one of the variables SyssStatG, SyssStat, SyssStatJ, SyssStat11, SyssStat19
-randomly sample one of each LopNr in the five year period "group_by(LopNr) %>% sample_n(1)"
-join with scb_grunduppgifter where Kon, Age and FodelseLand_EU28 variables are
-filter age over 18
-create new variables such as age groups, percentage of median income, , 
-summarize into count per 5 years (to later be able to calculate weighted mean of the whole period), % women and men, % age groups, % of median income etc, 
-save dataset, 
-remove the datasets and use gc() 
-and start over until all datasets are created
-the year groupings to use are "1995-1999", "2000-2004", "2005-2009","2010-2014", "2015-2019", "2020-2023",
+# 2 Filtered data 
+
+## 2.1 Extract variables
+
+*Why:* Extract variables for those who performes an HPA for descriptive tables with only HPI data, income data is used to select the study sample.
+
+*How:* 
+- read in filtered data of those with HPI data
+- go trough all datasets and select variables that has not been in earlier scb data.
+- Finally to save the selected data as one dataset
+
+*What:* Among other variables:  
+LoneInk	Kontant bruttolön m.m.
+LonFInk	Löne- eller företagarinkomst
+CSFVI	Sammanräknad förvärvsinkomst -  en individs arbetsinkomster (före skatter och transfereringar, men inklusive inkomster från sociala försäkringar knutna till att arbeta, så som arbetslöshetsersättning, sjukpenning,
+etc.)
+
+
+
+```{r}
+
+library(here)
+library(readr)
+library(dplyr)
+
+input_folder <- here("..", "..","..", "HPI (DNR XXXXXX)", "Data HPI registeruttag 2023", "SCB", "Leverans", "Leverans_20240306", "with_hpi_lopnr", "2.filtered")
+output_folder <- here("..", "..","..", "HPI (DNR XXXXXX)", "Data HPI registeruttag 2023", "SCB", "Leverans", "Leverans_20240306", "with_hpi_lopnr", "6.organization_variables")
+
+hpa <- read_csv(here::here("..", "..","..", "HPI (DNR XXXXXX)", "Data HPI registeruttag 2023", "HPI", "HPI clean", "EEB_hpb_clean_2023-10-16.csv")) %>% select(LopNr, Year, Performed) 
+
+data_list <- list()
+ years <- 1990:2021
+
+
+for (year in years) {
+  file_name <- sprintf("with_HPI_data_categories%d.csv", year)
+  full_path <- file.path(input_folder, file_name)
+  
+  # Load the dataset
+  temp_data <- read_csv(full_path, show_col_types = FALSE)
+  
+  # Check if 'ArsLonFInk' exists and rename it to 'LonFInk' if it does
+  if("ArsLonFInk" %in% names(temp_data)) {
+    temp_data <- temp_data %>% rename(LonFInk = ArsLonFInk)
+  }
+  
+
+  temp_data <- temp_data %>%
+    mutate(year = year) %>%
+    select(LopNr, year, 
+# individual level/sociodemographics
+Place_of_origin, Civil_status, EducationLevel, Ssyk3_minorlevel, SSYK, IncomeLevel, KommunSize, LoneInk, Income_Sources_Category,
+# worklife organisational
+Ownership_sector, Number_of_employees_Category, Turnover_Rate_Category, Operating_Profit_Margin, Operating_Profit_Margin_Category, Operatingprofit_category, SNI_group, SsykAr,
+
+Ssyk3_J16_pop, Ssyk3_pop, Ssyk3_2012_J16_pop
+           ) %>% 
+    distinct(LopNr, year, .keep_all = TRUE)
+  
+    # Check for parsing issues
+  # parsing_problems <- problems(temp_data)
+  # if (nrow(parsing_problems) > 0) {
+  #   print(paste("Year:", year, "- Found", nrow(parsing_problems), "parsing issues."))
+  #   print(head(parsing_problems))
+  # }
+  # check for problems reading files
+  print(paste("Reading file for year:", year, "with", nrow(temp_data), "rows."))
+
+  
+  # Append the processed data to the list
+  data_list[[as.character(year)]] <- temp_data
+}
+
+# Combine all data frames into a single data frame
+all_data <- bind_rows(data_list)
+
+all_data %>% filter(year==2021) %>% print(n=100)
+
+# Joining all_data with hpa dataset
+final_data <- hpa %>% left_join(all_data, by = c("LopNr", "Year" = "year")) %>% 
+  mutate(n=n(), .by = c(LopNr, Performed)) %>% filter(n==1) 
+
+
+
+# Optionally, write the final_data to a file in the output_folder
+write_csv(final_data, file.path(output_folder, "organization_data.csv"))
+
+
+
+
+temp_ <- read_csv( here("..", "..","..", "HPI (DNR XXXXXX)", "Data HPI registeruttag 2023", "SCB", "Leverans", "Leverans_20240306", "with_hpi_lopnr", "2.filtered", "with_HPI_data_categories2020.csv"), show_col_types = FALSE)
+
+# Check for parsing problems
+parsing_issues <- problems(data_list)
+if(nrow(parsing_issues) > 0) {
+  print(parsing_issues)
+}
+
+
+
+# # Check for duplicates in `all_data`
+# duplicates_all_data <- all_data %>%
+#   count(LopNr, year) %>%
+#   filter(n > 1)
+# final_data %>% filter(is.na(LoneInk))
+# all_data %>% filter(LopNr==234487 | LopNr==246693) %>% print(n=100)
+# # Check for duplicates in `hpa`
+# duplicates_hpa <- hpa %>%
+#   count(LopNr, Year) %>%
+#   filter(n > 1)
+# 
+# # View the results
+# print("Duplicates in all_data:")
+# print(duplicates_all_data)
+# 
+# print("Duplicates in hpa:")
+# print(duplicates_hpa)
+
+```
+
+## 2.2 Sumarizing data without HPI data
+
+*Why:* To be able to compare population data and HPI data
+
+*How:*   
+- Combine Employment Data: Merge five datasets excluding HPI data to form a comprehensive employment dataset with filtered datasets.
+- Filter and Sample: Apply filters for specific employment statuses (1 or 5) and randomly select one record per LopNr within each 5-year group to ensure representation without duplication.
+- Enrich Data: Augment the dataset with demographic information from scb_grunduppgifter based on gender, age, and birth country, focusing on individuals over 18.
+- Categorize and Summarize: Create variables for age groups and median income percentages, summarizing data to highlight counts, gender distribution, age groups, and income levels for each 5-year period.
+- Iterate and Output: Process all specified 5-year periods, saving summarized data for further analysis and employing memory management strategies between iterations.
+ 
+
+*What:* Summarize data into 5 year groups for those without HPI data
+
+
+
+
 
 ```{r}
 
@@ -867,16 +1343,18 @@ set_seed <- function(data, seed = 123) {
 }
 
 
-
 process_datasets <- function(year_group, file_paths) {
   # 1. Read in the datasets
- datasets <- map_df(file_paths, ~read_csv(.x) %>%
-                      select(LopNr, AgeGroup, Sex, BirthPlace, MarriedOrPartner, 
-                             KommunSize, EducationLevel,Ownership_sector, Ssyk_majorlevel, IncomeLevel, 
-                             LoneInk_grupp, Lon_Foretag, net_sales_category, SNI_group,
-                             operating_profit_category, Number_of_employees_Category, 
-                             Income_Sources_Category, Turnover_Rate_Category, 
-                             Turnover_Rate_Percent)) #Operating_Margin_Percent
+  datasets <- map_df(file_paths, ~read_csv(.x) %>%
+                       select(
+                         LopNr, 
+                         # individual level/sociodemographics
+                         AgeGroup, Sex, 
+                         
+                         Place_of_origin, Civil_status, EducationLevel, SSYK, IncomeLevel, KommunSize, Income_Sources_Category,
+                         # worklife organisational
+                        Ownership_sector, Number_of_employees_Category, Turnover_Rate_Category, Operating_Profit_Margin_Category, Operatingprofit_category, SNI_group
+                       )) 
   
   # 3. Randomly sample one of each LopNr
   sampled_data <-  datasets %>%
@@ -888,11 +1366,23 @@ process_datasets <- function(year_group, file_paths) {
   # 4. Summarize data
   
   #  variable lists
-categorical_vars <- c("AgeGroup", "Sex", "BirthPlace", "MarriedOrPartner", "KommunSize", "Ownership_sector",
-                      "EducationLevel", "Ssyk_majorlevel","SNI_group",  "IncomeLevel", "LoneInk_grupp", 
-                      "Lon_Foretag", "net_sales_category", "operating_profit_category", 
-                      "Number_of_employees_Category", "Income_Sources_Category", 
-                      "Turnover_Rate_Category")
+  categorical_vars <- c(
+    "AgeGroup", 
+    "Sex", 
+    "Place_of_origin", 
+    "Civil_status", 
+    "EducationLevel", 
+    "SSYK", 
+    "Income_Sources_Category", 
+    "IncomeLevel", 
+    "KommunSize",
+    "Ownership_sector", 
+    "Number_of_employees_Category",
+    "Turnover_Rate_Category", 
+    "Operatingprofit_category",
+    "Operating_Profit_Margin_Category", 
+    "SNI_group"
+  )
 continuous_vars <- c("Turnover_Rate_Percent") #, "Operating_Margin_Percent"
   
 calculate_percentages <- function(df, vars, group_var = NULL) {
@@ -996,13 +1486,25 @@ process_datasets("2015-2019", file_paths_2015_2019)
 process_datasets("2020-2021", file_paths_2020_2021)
 
 
-scb_2012 %>% glimpse()
-
 ```
 
 
-# function 4 with hpi data
-summarize data for those with HPI data
+## 2.3 Sumarizing data with HPI data
+
+*Why:* To be able to compare population data and HPI data
+
+*How:*   
+- Combine Employment Data: Merge five datasets excluding HPI data to form a comprehensive employment dataset with filtered datasets.
+- Filter and Sample: Apply filters for specific employment statuses (1 or 5) and randomly select one record per LopNr within each 5-year group to ensure representation without duplication.
+- Enrich Data: Augment the dataset with demographic information from scb_grunduppgifter based on gender, age, and birth country, focusing on individuals over 18.
+- Categorize and Summarize: Create variables for age groups and median income percentages, summarizing data to highlight counts, gender distribution, age groups, and income levels for each 5-year period.
+- Iterate and Output: Process all specified 5-year periods, saving summarized data for further analysis and employing memory management strategies between iterations.
+ 
+
+*What:* Summarize data into 5 year groups for those with HPI data
+
+
+
 ```{r}
 
 # scb_withhpi1996<-
@@ -1015,12 +1517,13 @@ summarize data for those with HPI data
 process_datasets <- function(year_group, file_paths) {
   # 1. Read in the datasets
  datasets <- map_df(file_paths, ~read_csv(.x) %>%
-                      select(LopNr, AgeGroup, Sex, Year, BirthPlace, MarriedOrPartner, 
-                             KommunSize, EducationLevel,Ownership_sector, Ssyk_majorlevel, IncomeLevel, 
-                             LoneInk_grupp, Lon_Foretag, net_sales_category, SNI_group,
-                             operating_profit_category, Number_of_employees_Category, 
-                             Income_Sources_Category, Turnover_Rate_Category, 
-                             Turnover_Rate_Percent)) #Operating_Margin_Percent
+                      select(
+                        LopNr, AgeGroup, Sex, Year, 
+                                                 # individual level/sociodemographics
+                         Place_of_origin, Civil_status, EducationLevel, Ssyk3_minorlevel, SSYK, IncomeLevel, KommunSize, Income_Sources_Category,
+                         # worklife organisational
+                        Ownership_sector, Number_of_employees_Category, Turnover_Rate_Category, Operating_Profit_Margin_Category, Operatingprofit_category, SNI_group,
+                             )) 
  
  hpa <- read_csv(here::here("..", "..","..", "HPI (DNR XXXXXX)", "Data HPI registeruttag 2023", "HPI", "HPI clean", "EEB_hpb_clean_2023-10-16.csv")) %>% 
    filter(rowSums(!is.na(select(., EkB_rel_VO2, Astrand_rel_VO2, HeightCM, WeightKG, BloodPressureSystolic, BloodPressureDiastolic))) >= 2,
@@ -1047,11 +1550,23 @@ process_datasets <- function(year_group, file_paths) {
   # 4. Summarize data
   
   #  variable lists
-categorical_vars <- c("AgeGroup", "Sex", "BirthPlace", "MarriedOrPartner", "KommunSize", "Ownership_sector",
-                      "EducationLevel", "Ssyk_majorlevel","SNI_group",  "IncomeLevel", "LoneInk_grupp", 
-                      "Lon_Foretag", "net_sales_category", "operating_profit_category", 
-                      "Number_of_employees_Category", "Income_Sources_Category", 
-                      "Turnover_Rate_Category")
+    categorical_vars <- c(
+    "AgeGroup", 
+    "Sex", 
+    "Place_of_origin", 
+    "Civil_status", 
+    "EducationLevel", 
+    "SSYK", 
+    "Income_Sources_Category", 
+    "IncomeLevel", 
+    "KommunSize",
+    "Ownership_sector", 
+    "Number_of_employees_Category",
+    "Turnover_Rate_Category", 
+    "Operatingprofit_category",
+    "Operating_Profit_Margin_Category", 
+    "SNI_group"
+)
 continuous_vars <- c("Turnover_Rate_Percent") #, "Operating_Margin_Percent"
   
 calculate_percentages <- function(df, vars, group_var = NULL) {
@@ -1106,7 +1621,7 @@ summary_data <- bind_rows(
 )
   
   # 5. Save the dataset
-path_output <- here::here(str_glue("../../../HPI (DNR XXXXXX)/Data HPI registeruttag 2023/SCB/Leverans/Leverans_20240306/with_hpi_lopnr/3.summarized/Summary_witout_hpi_data_{year_group}.csv"))
+path_output <- here::here(str_glue("../../../HPI (DNR XXXXXX)/Data HPI registeruttag 2023/SCB/Leverans/Leverans_20240306/with_hpi_lopnr/3.summarized/Summary_with_hpi_data_{year_group}.csv"))
 
 
   write_csv(summary_data, path_output)
@@ -1154,330 +1669,7 @@ process_datasets("2020-2021", file_paths_2020_2021)
 
 ```
 
-# read summarized files
-
-```{r}
-
-bind_rows(
- read_csv(here::here("..", "..","..", "HPI (DNR XXXXXX)", "Data HPI registeruttag 2023", "SCB", "Leverans", "Leverans_20240306", "with_hpi_lopnr", "5.work_duration", "workduration_with_summarized.csv")) %>% 
-  rename( "Categories"=consecutive_years_category ,
-          "Value" = percentage) %>% 
-  mutate(Variable = "consecutive_years_category"),
-
-read_csv(here::here("..", "..","..", "HPI (DNR XXXXXX)", "Data HPI registeruttag 2023", "SCB", "Leverans", "Leverans_20240306", "with_hpi_lopnr", "5.work_duration", "workduration_without_summarized.csv"))%>% 
-  rename( "Categories"=consecutive_years_category ,
-          "Value" = percentage) %>% 
-  mutate(Variable = "consecutive_years_category")
-)
-
-
-
-# Define the directory where your summarized files are saved
-directory_path_without <- here("../../../HPI (DNR XXXXXX)/Data HPI registeruttag 2023/SCB/Leverans/Leverans_20240306/without_hpi_lopnr/3.summarized")
-directory_path_with <- here("../../../HPI (DNR XXXXXX)/Data HPI registeruttag 2023/SCB/Leverans/Leverans_20240306/with_hpi_lopnr/3.summarized")
-
-# List all summary files in the directory
-summary_files_without <- list.files(path = directory_path_without, pattern = "Summary_.*\\.csv", full.names = TRUE)
-summary_files_with <- list.files(path = directory_path_with, pattern = "Summary_.*\\.csv", full.names = TRUE)
-# Read in all summary files, add a 'YearGroup' column, and bind them into one dataframe
-all_summarized_data <- 
-  bind_rows(
-  summary_files_without %>%
-  map_df(~{
-    year_group <- str_extract(basename(.x), "\\d{4}-\\d{4}|\\d{4}-\\d{2}") # Extracts year group from the filename
-    
-    read_csv(.x) %>%
-      mutate(YearGroup = year_group,
-             data = "without_HPI") 
-  }),
-
-summary_files_with %>%
-  map_df(~{
-    year_group <- str_extract(basename(.x), "\\d{4}-\\d{4}|\\d{4}-\\d{2}") # Extracts year group from the filename
-    
-    read_csv(.x) %>%
-      mutate(YearGroup = year_group,
-             data = "with_HPI")
-  })
-)  %>% 
-  # adding the 3 years or more of workplace category
-  bind_rows(
-  bind_rows(
- read_csv(here::here("..", "..","..", "HPI (DNR XXXXXX)", "Data HPI registeruttag 2023", "SCB", "Leverans", "Leverans_20240306", "with_hpi_lopnr", "5.work_duration", "workduration_with_summarized.csv")) %>% 
-  rename( "Categories"=consecutive_years_category ,
-          "Value" = percentage) %>% 
-  mutate(Variable = "consecutive_years_category"),
-
-read_csv(here::here("..", "..","..", "HPI (DNR XXXXXX)", "Data HPI registeruttag 2023", "SCB", "Leverans", "Leverans_20240306", "with_hpi_lopnr", "5.work_duration", "workduration_without_summarized.csv"))%>% 
-  rename( "Categories"=consecutive_years_category ,
-          "Value" = percentage) %>% 
-  mutate(Variable = "consecutive_years_category")
-)
-) 
-
-
-all_summarized_data %>% 
-  pivot_wider(names_from =  data , values_from = c(n, Value)) %>% 
-  mutate(diff = Value_with_HPI - Value_without_HPI,
-         rel_diff = Value_with_HPI/Value_without_HPI,
-         vars = str_c(Variable, Categories, sep = " ")) %>% 
- mutate(
-    Variable = factor(Variable, levels = c("AgeGroup", "Sex", "BirthPlace", "EducationLevel", "IncomeLevel", "Income_Sources_Category", "Ownership_sector", "KommunSize",  "MarriedOrPartner",
-                                           "Ssyk_majorlevel", "SNI_group",  "Number_of_employees_Category",  "Lon_Foretag", "LoneInk_grupp", "net_sales_category", "operating_profit_category", "Turnover_Rate_Category",   "Turnover_Rate_Percent")),
-    Categories = case_when(
-      Variable == "AgeGroup" ~ fct_relevel(Categories, "18-35", "36-50", "51-65", ">65"),
-      Variable == "BirthPlace" ~ fct_relevel(Categories, "Sweden", "Europe", "Outside Europe", "NA"),
-      Variable == "EducationLevel" ~ fct_relevel(Categories, "Primary", "Secondary", "Tertiary <2 years", "Higher Education", "NA"),
-      Variable == "IncomeLevel" ~ fct_relevel(Categories, "<60%", "60–79%", "80–119%", "120–199%", "≥200%"),
-      Variable == "Income_Sources_Category" ~ fct_relevel(Categories, "No Income Sources", "Single Income Source", "Multiple Income Sources: 2-3", "Diverse Income Sources: 4-5", "Highly Diverse Income Sources: 6+"),
-      Variable == "Ownership_sector" ~ fct_relevel(Categories, "Offentligt", "Privat"),
-      Variable == "KommunSize" ~ fct_relevel(Categories, "rural_municipalities", "dense_municipalities", "metropolitan_municipalities", "NA"),
-      Variable == "Lon_Foretag" ~ fct_relevel(Categories, "<60%", "60–79%", "80–119%", "120–199%", "≥200%", "NA"),
-      Variable == "LoneInk_grupp" ~ fct_relevel(Categories, "<60%", "60–79%", "80–119%", "120–199%", "≥200%"),
-      Variable == "MarriedOrPartner" ~ fct_relevel(Categories, "Single", "Partner", "NA"),
-      Variable == "Number_of_employees_Category" ~ fct_relevel(Categories, "Micro-Enterprises: 1-9 employees", "Small Enterprises: 10-49 employees", "Medium-Sized Enterprises: 50-249 employees", "Large Enterprises: 250+ employees", "NA"),
-      Variable == "Sex" ~ fct_relevel(Categories, "1", "2"),
-      Variable == "Turnover_Rate_Category" ~ fct_relevel(Categories, "No Turnover", "Very Low Turnover (0.1-1.0)", "Low Turnover (1.1-2.0)", "Moderate Turnover (2.1-5.0)", "High Turnover (5.1-10.0)", "Very High Turnover (10.1-20.0)", "Extremely High Turnover (20.1+)", "NA"),
-      Variable == "Turnover_Rate_Percent" ~ fct_relevel(Categories, "Mean", "NA Count"),
-      Variable == "net_sales_category" ~ fct_relevel(Categories, "<60%", "60–79%", "80–119%", "120–199%", "≥200%", "NA"),
-      Variable == "operating_profit_category" ~ fct_relevel(Categories, "<60%", "60–79%", "80–119%", "120–199%", "≥200%", "NA"),
-      # For SNI_group and others, apply specific ordering if needed
-      # Variable == "SNI_group" ~ fct_relevel(Categories, !!!SNI_group_order),
-      TRUE ~ as.factor(Categories)  # Default case for other variables not explicitly handled
-  )) %>%
-  drop_na() %>% 
-  ggplot(aes(x=diff, y=vars, color = Variable)) +
-  geom_col()+
-  facet_wrap(~YearGroup,  ncol = 6)
-
-# Optionally, you can write this combined dataset to a new CSV file
-write_csv(all_summarized_data, path = file.path(directory_path, "Combined_Summary_All_Periods.csv"))
-
-```
-# plot
-
-```{r}
-
-library(statebins)
-library(ggtext)
-library(patchwork)
-library(sysfonts)
-library(showtextdb)
-library(showtext)
-library(ggchicklet)
-library(scales) # For label_percent
-
-# Load fonts --------------------------------------------------------------
-
-font_add_google("Ubuntu", "ubuntu")
-showtext_auto()
-
-bg_col <- "white"
-text_col <- "black"
-body_font <- "ubuntu"
-title_font <- "ubuntu"
-
-
-
-
-ggplot(aes(x=diff, y=vars, color = Variable)) +
-  geom_col()+
-  facet_wrap(~YearGroup,  ncol = 6)
-# Extract the colors from the 'lipari' palette
-# colors <- scico::scico(n = n_colors, palette = 'lipari')
-# n_colors <- 9
-# 
-# c("#364B9A", "#4A7BB7", "#6EA6CD", "#98CAE1", "#C2E4EF", "white", "#FEDA8B", "#FDB366", "#F67E4B", "#DD3D2D", "#A50026")
-# # Print the colors
-# colors
-# "#021326" "#1E4368" "#5C5D78" "#89606E" "#C2655F" "#EA8D6B" "#E6BC91" "#FDF4D9"
-#  "#021326" "#173D60" "#515A79" "#775E72" "#FDF4D9"  "#E6C398" "#E99973" "#D86E5D" "#A36267" 
-#  
-custom_order <- c(
-  # AgeGroup order
-  "AgeGroup 18-35", "AgeGroup 36-50", "AgeGroup 51-65", "AgeGroup >65",
-  # Sex order
-  "Sex 1", "Sex 2",
-  # BirthPlace order
-  "BirthPlace Sweden", "BirthPlace Europe", "BirthPlace Outside Europe", "BirthPlace NA",
-  # EducationLevel order
-  "EducationLevel Primary", "EducationLevel Secondary", "EducationLevel Tertiary <2 years", "EducationLevel Higher Education", "EducationLevel NA",
-  # IncomeLevel order
-  "IncomeLevel <60%", "IncomeLevel 60–79%", "IncomeLevel 80–119%", "IncomeLevel 120–199%", "IncomeLevel ≥200%",
-  # Income_Sources_Category order
-  "Income_Sources_Category No Income Sources", "Income_Sources_Category Single Income Source", "Income_Sources_Category Multiple Income Sources: 2-3", "Income_Sources_Category Diverse Income Sources: 4-5", "Income_Sources_Category Highly Diverse Income Sources: 6+",
-  # InstitutionCategory order
-  "InstitutionCategory Offentligt", "InstitutionCategory Privat",
-  # KommunSize order
-  "KommunSize rural_municipalities", "KommunSize dense_municipalities", "KommunSize metropolitan_municipalities", "KommunSize NA",
-  # MarriedOrPartner order
-  "MarriedOrPartner Single", "MarriedOrPartner Partner", "MarriedOrPartner NA",
-  # Number_of_employees_Category order
-  "Number_of_employees_Category Micro-Enterprises: 1-9 employees", "Number_of_employees_Category Small Enterprises: 10-49 employees", "Number_of_employees_Category Medium-Sized Enterprises: 50-249 employees", "Number_of_employees_Category Large Enterprises: 250+ employees", "Number_of_employees_Category NA",
-  # Lon_Foretag order (Assuming similar to IncomeLevel for illustration)
-  "Lon_Foretag <60%", "Lon_Foretag 60–79%", "Lon_Foretag 80–119%", "Lon_Foretag 120–199%", "Lon_Foretag ≥200%", "Lon_Foretag NA",
-  # LoneInk_grupp order (Assuming similar to IncomeLevel for illustration)
-  "LoneInk_grupp <60%", "LoneInk_grupp 60–79%", "LoneInk_grupp 80–119%", "LoneInk_grupp 120–199%", "LoneInk_grupp ≥200%"
-  # Additional categories for other variables should be added here following the same pattern.
-  
-  # For variables like SNI_group, Ssyk_majorlevel, and others with specific categories not listed, you would add them in a similar fashion, ensuring each unique combination of Variable and Categories is represented.
-)
-
-# Ownership sector, instutution category
-# "Public Govermental",
-#         substr(InstKod, 3, 3) %in% c("2") ~ "Public Regional",
-#         TRUE ~ "Private"
-
-custom_order_categories <- c(
-  "18-35", "36-50", "51-65", ">65", # AgeGroup
-  "Men", "Women", # Sex, assuming 1 for Male and 2 for Female for illustration
-  "Sweden", "Europe", "Outside Europe",  # BirthPlace
-  "Primary", "Secondary", "Tertiary <2 years", "Higher Education",# EducationLevel
-  "<60%", "60–79%", "80–119%", "120–199%", "≥200%", # IncomeLevel
-  "No Income Sources", "Single Income Source", "Multiple Income Sources: 2-3", "Diverse Income Sources: 4-5", "Highly Diverse Income Sources: 6+", # Income_Sources_Category
-  "Offentligt", "Privat", # InstitutionCategory
-  "rural_municipalities", "dense_municipalities", "metropolitan_municipalities",  # KommunSize
-  "Single", "Partner",  # MarriedOrPartner
-  "Micro-Enterprises: 1-9 employees", "Small Enterprises: 10-49 employees", "Medium-Sized Enterprises: 50-249 employees", "Large Enterprises: 250+ employees", # Number_of_employees_Category
-  # SSYK real names with numbers
-  "0 Military", "1 Managers", "2 Professionals", "3 Technicians and associate professionals", "4 Clerical support workers", "5 Service and sales workers", "6 Skilled agricultural, forestry and fishery workers", "7 Craft and related trades workers", "8 Plant and machine operators, and assemblers", "9 Elementary occupations",  # SSYK levels
-  # Educated guess for SNI order based on typical industry classifications
-  "Agriculture, forestry and fishing", "Mining and quarrying", "Manufacturing", "Electricity, gas, steam and air conditioning supply", "Water supply; sewerage, waste management and remediation activities", "Construction", "Wholesale and retail trade; repair of motor vehicles and motorcycles", "Transportation and storage", "Accommodation and food service activities", "Information and communication", "Financial and insurance activities", "Real estate activities", "Professional, scientific and technical activities", "Administrative and support service activities", "Public administration and defence; compulsory social security", "Education", "Human health and social work activities", "Arts, entertainment and recreation", "Other service activities", "Activities of household employers; undifferentiated goods- and services-producing activities of households for own use", "Activities of extraterritorial organizations and bodies", "NA" # SNI groups
-)
-
-bins_plot_data <-
-  all_summarized_data %>% 
-    pivot_wider(names_from =  data , values_from = c(n, Value)) %>% 
-  mutate(
-    diff_absolute = Value_with_HPI - Value_without_HPI,
-    diff_relative_ratio = round(Value_with_HPI/Value_without_HPI,2), # as a ratio
-    diff_relative_percent = (Value_with_HPI - Value_without_HPI) / Value_without_HPI * 100, 
-          diff_percent = label_percent(accuracy = 0.1)(diff_absolute / 100), # Convert diff to percentage and format
-    diff_relative_percent_label = label_percent(accuracy = 0.1)(diff_relative_percent / 100),
-    Categories = case_when(
-      Variable == "Sex" & Categories == "1" ~ "Men",
-      Variable == "Sex" & Categories == "2" ~ "Women",
-      Variable == "Ssyk_majorlevel" & Categories == "0" ~ "0 Military",
-      Variable == "Ssyk_majorlevel" & Categories == "1" ~ "1 Managers",
-      Variable == "Ssyk_majorlevel" & Categories == "2" ~ "2 Professionals",
-      Variable == "Ssyk_majorlevel" & Categories == "3" ~ "3 Technicians and associate professionals",
-      Variable == "Ssyk_majorlevel" & Categories == "4" ~ "4 Clerical support workers",
-      Variable == "Ssyk_majorlevel" & Categories == "5" ~ "5 Service and sales workers",
-      Variable == "Ssyk_majorlevel" & Categories == "6" ~ "6 Skilled agricultural, forestry and fishery workers",
-      Variable == "Ssyk_majorlevel" & Categories == "7" ~ "7 Craft and related trades workers",
-      Variable == "Ssyk_majorlevel" & Categories == "8" ~ "8 Plant and machine operators, and assemblers",
-      Variable == "Ssyk_majorlevel" & Categories == "9" ~ "9 Elementary occupations",
-    # Add more mappings as needed for SNI or other categories
-    TRUE ~ Categories  # Default case to keep existing values as they are
-  ), 
-  vars = str_c(Variable, Categories, sep = " "),
- Variable = factor(Variable, levels = c("AgeGroup", "Sex", "BirthPlace", "EducationLevel", "IncomeLevel", "Income_Sources_Category", "InstitutionCategory", "KommunSize",  "MarriedOrPartner",
-                                           "Ssyk_majorlevel", "SNI_group",  "Number_of_employees_Category",  "Lon_Foretag", "LoneInk_grupp", "net_sales_category", "operating_profit_category", "Turnover_Rate_Category",   "Turnover_Rate_Percent")),
-Categories = factor(Categories, levels = custom_order_categories)) %>% 
-  drop_na() %>% 
-  mutate(text_color = if_else(diff_relative_percent < -60, "white", "black"))
-  
-  diff = diff_relative_ratio
-  label_diff = diff_relative_ratio
-  # Plot
-  
-  
-  
-  
-  
-  bins_plot <-
-  bins_plot_data %>% 
-  ggplot(
-   aes(x = YearGroup, y = Categories, fill = diff_relative_percent)
-   ) +
-  statebins:::geom_rtile(
-    radius = unit(3, "pt"),
-  #  position = position_dodge(1),
-   height =.95, 
-   width = .95
-  ) +
-   geom_text(aes(label = diff_relative_percent_label,  color = text_color)) +
-  # scico::scale_fill_scico(palette = 'lipari') +
-  # 
-  # scale_fill_gradientn(colors = c(  "#ca9b1a", "#e3b44a", "#f5cc79", "#fae3ac", "#fdf1d6",
-  # "white",
-  # "#c4e2e1", "#88d4d2", "#4bc6c3", "#1ebbbf", "#189a91"),
-  # values = scales::rescale(c(-1, 0, 1))) +
-  
-    scale_fill_gradientn(colors = c("#003B46", "#07575B", "#66A5AD", "#C4DFE6", "#E6F1F5", "#FFD1AA", "#FFA07A", "#F08030"),
-  values = scales::rescale(c(-1, 0, 1))) +
-      scale_color_identity() + # Use the color identity scale to apply the colors directly
-  scale_x_discrete(labels = c("95-99", "00-04", "05-09", "10-14", "15-19", "20-21"),
-                   position = "top",
-                   guide = guide_axis(n.dodge = 2)) + 
-  #coord_fixed() +
-  ggforce::facet_col(~Variable, 
-                     scales = 'free_y', 
-                     space = 'free',
-                     strip.position = 'top')+
-  #facet_wrap(~group, ncol = 1, scales = "free_y") +
-  #theme_void(base_size = 32, base_family = "Oficial") +
-
-  theme(
-   # aspect.ratio = .2,
-    
-    legend.position = "bottom",
-    plot.background = element_rect(fill = bg_col, colour = bg_col),
-    panel.background = element_rect(fill = bg_col, colour = bg_col),
-    panel.grid.major = element_blank(), 
-    panel.grid.minor = element_blank(),
-    axis.title = element_blank(),
-    axis.text.y = element_text(colour = text_col,
-                               hjust = 1,
-                               margin = margin(r = 0),
-                               angle=0),
-    axis.text.x = element_text(colour = text_col,
-                               hjust = .5,
-                               margin = margin(r = 0),
-                               angle=0),
-    axis.line.x = element_line(),
-    axis.ticks.x = element_line(),
-    plot.title.position = "plot",
-    plot.caption.position = "plot",
-    strip.text = element_text(face = "bold", color = "grey10", 
-                              size = 10,
-                              hjust = 0,
-                              margin = margin(t = 0, r = 0, b = 0, l = 0)),
-    strip.background = element_rect(fill = "white", color = "white"),
-    plot.margin = margin(t=10, r=-0, b=10, l=0),
-    plot.title = element_textbox_simple(
-      colour = text_col,
-      hjust = 0.5,
-      halign = 0,
-      size = rel(1.8),
-      face = "bold",
-      margin = margin(b = 10, t = 10),
-      lineheight = 0.5#,
-      #family = body_font
-    )
-  )
-ggsave("plotscbpopulation_reldiff_percent.pdf", height = 20, width = 10)
-ggsave("plotscbpopulation_reldiff.pdf", height = 20, width = 10)
-
-ggsave("plotscbpopulation.pdf", height = 20, width = 10)
-
-c("#5B92E5", "#A1C4F5", "#DCE4F6", "#FFFFFF", "#FFD1AA", "#FFA07A", "#F06030")
-c("#9B59D0", "#C2A5DE", "#E1D3EC", "#F2F2F2", "#C5E1A5", "#9CCC65", "#7CB342")
-c("#35978F", "#79BFA1", "#B8E2C8", "#E6F2E4", "#FFF2AC", "#FFD966", "#FFC107")
-c("#003B46", "#07575B", "#66A5AD", "#C4DFE6", "#FFD1AA", "#FFA07A", "#F08030")
-c("#003B46", "#07575B", "#66A5AD", "#C4DFE6", "#E6F1F5", "#FFD1AA", "#FFA07A", "#F08030")
-
-c("#8C564B", "#C49C94", "#E4D6C3", "#F7F7F7", "#C7E9C0", "#A1D99B", "#74C476")
-c("#7B3294", "#C2A5CF", "#F7F7F7", "#FFF7BC", "#FDBB84", "#E34A33")
-
-
-c("#173D60", "#515A79" ,"#775E72", "#FDF4D9", "#E6C398", "#E99973", "#A36267") 
-
-
-```
-
-
-# Function 5 over and underreached without HPI data
+## 2.4 Over and underreached without HPI data
 
 ```{r}
 
@@ -1545,7 +1737,7 @@ base_path <- here::here("..", "..", "..", "HPI (DNR XXXXXX)", "Data HPI register
 
 
 # Generate file paths for the period 2000-2004 as an example
-file_paths_2016_2021 <- generate_file_paths(2017, 2021, base_path)
+file_paths_2016_2021 <- generate_file_paths(2015, 2021, base_path)
 
 
 # Call the function
@@ -1556,7 +1748,7 @@ process_datasets("2017-2021", file_paths_2016_2021)
 
 ```
 
-# Function 6 over and underreached with HPI data
+## 2.5 Over and underreached with HPI data
 
 ```{r}
 
@@ -1624,7 +1816,7 @@ base_path <- here::here("..", "..", "..", "HPI (DNR XXXXXX)", "Data HPI register
 
 
 # Generate file paths for the period 2000-2004 as an example
-file_paths_2016_2021 <- generate_file_paths(2017, 2021, base_path)
+file_paths_2016_2021 <- generate_file_paths(2015, 2021, base_path)
 
 
 # Call the function
@@ -1635,10 +1827,986 @@ process_datasets("2017-2021", file_paths_2016_2021)
 
 ```
 
+# 3 Summarized data 
+
+## 3.1 Read summarized files
+```{r}
+
+
+
+# Read in all summary files, add a 'YearGroup' column, and bind them into one dataframe
+all_summarized_data <- 
+  bind_rows(
+    # create list of filepaths for those without HPI data
+  list.files(path = here("../../../HPI (DNR XXXXXX)/Data HPI registeruttag 2023/SCB/Leverans/Leverans_20240306/without_hpi_lopnr/3.summarized"), pattern = "Summary_.*\\.csv", full.names = TRUE) %>%
+    
+  map_df(~{
+    # Extracts year group from the filename
+    year_group <- str_extract(basename(.x), "\\d{4}-\\d{4}|\\d{4}-\\d{2}") 
+    
+    read_csv(.x) %>%
+      mutate(YearGroup = year_group,
+             data = "without_HPI") 
+  }),
+ # create list of filepaths for those with HPI data
+list.files(path = here("../../../HPI (DNR XXXXXX)/Data HPI registeruttag 2023/SCB/Leverans/Leverans_20240306/with_hpi_lopnr/3.summarized"), pattern = "Summary_.*\\.csv", full.names = TRUE) %>%
+  map_df(~{
+    year_group <- str_extract(basename(.x), "\\d{4}-\\d{4}|\\d{4}-\\d{2}") # Extracts year group from the filename
+    
+    read_csv(.x) %>%
+      mutate(YearGroup = year_group,
+             data = "with_HPI")
+  })
+)  %>% 
+  # adding the 3 years or more of workplace category, consecutive years category
+  bind_rows(
+  bind_rows(
+ read_csv(here::here("..", "..","..", "HPI (DNR XXXXXX)", "Data HPI registeruttag 2023", "SCB", "Leverans", "Leverans_20240306", "with_hpi_lopnr", "5.work_duration", "workduration_with_summarized.csv")) %>% 
+  rename( "Categories"=consecutive_years_category ,
+          "Value" = percentage) %>% 
+  mutate(Variable = "consecutive_years_category"),
+
+read_csv(here::here("..", "..","..", "HPI (DNR XXXXXX)", "Data HPI registeruttag 2023", "SCB", "Leverans", "Leverans_20240306", "with_hpi_lopnr", "5.work_duration", "workduration_without_summarized.csv")) %>% 
+  rename( "Categories"=consecutive_years_category ,
+          "Value" = percentage) %>% 
+  mutate(Variable = "consecutive_years_category")
+)
+) %>% 
+  select(!c(year_group, total)) 
+
+```
+## 3.2 Plot
+
+
+## plot sociodemographics
+
+## plot worklife organizational charactaristics
 
 ```{r}
 
-# Define the directory where your summarized files are saved
+library(statebins)
+library(ggtext)
+library(patchwork)
+library(sysfonts)
+library(showtextdb)
+library(showtext)
+library(ggchicklet)
+library(scales) # For label_percent
+
+# Load fonts --------------------------------------------------------------
+
+font_add_google("Ubuntu", "ubuntu")
+showtext_auto()
+
+bg_col <- "white"
+text_col <- "black"
+body_font <- "ubuntu"
+title_font <- "ubuntu"
+
+ 
+  diff = diff_relative_ratio
+  label_diff = diff_relative_ratio
+  
+  
+#############################################################################  
+# plot data
+#############################################################################  
+  
+  bins_plot_data <-
+  all_summarized_data %>% 
+    pivot_wider(names_from =  data , values_from = c(n, Value)) %>% 
+    mutate(
+      Categories = if_else(Variable=="Sex",
+                           recode(Categories,
+                          "1" = "Men",
+                          "2" = "Women"
+      ), Categories),
+    Variable = recode(Variable,
+      "Sex" = "Sex",
+      "AgeGroup" = "Age group",
+      "Place_of_origin" = "Place of birth",
+      "Civil_status" = "Civil status",
+      "KommunSize" = "Municipality",
+      "EducationLevel" = "Education",
+      "SSYK" = "Occupation",
+      "IncomeLevel" = "Income (% of median)",
+      "Income_Sources_Category" = "Income Sources",
+      "consecutive_years_category" = "Contractual temporariness",
+      "Ownership_sector" = "Ownership sector",
+      "Number_of_employees_Category" = "Number of employees",
+      "SNI_group" = "Economic sector",
+      "Operatingprofit_category" = "Operating profit (% of median)",
+      "Operating_Profit_Margin_Category" = "Operating profit margin",
+      "Turnover_Rate_Category" = "Staff turnover"
+    ),
+     Variable = factor(Variable, levels = c(
+       # demographics
+      "Sex", 
+      "Age group",  
+      "Place of birth", 
+      "Civil status", 
+      "Municipality", 
+      "Education", 
+      "Occupation", 
+      "Income (% of median)", 
+      "Income Sources", 
+      "Contractual temporariness",
+      # worklife
+      "Ownership sector", 
+      "Number of employees", 
+      "Economic sector", 
+      "Operating profit (% of median)", 
+      "Operating profit margin", 
+      "Staff turnover"))) %>% 
+  mutate(
+    diff_absolute = Value_with_HPI - Value_without_HPI,
+    diff_relative_ratio = round(Value_with_HPI/Value_without_HPI,2), # as a ratio
+    diff_relative_percent = (Value_with_HPI - Value_without_HPI) / Value_without_HPI * 100, 
+          diff_percent =scales::label_percent(accuracy = 0.1)(diff_absolute / 100), # Convert diff to percentage and format
+    diff_relative_percent_label = scales::label_percent(accuracy = 0.1)(diff_relative_percent / 100)) #%>% filter(Variable == "consecutive_years_category")
+  
+  
+  
+  
+  
+#############################################################################  
+  # sociodemographics plot data
+#############################################################################  
+  
+     order_category_sociodemographic <-
+   c(
+  rev(c("18-35", "36-50", "51-65", ">65")), # AgeGroup
+  rev(c("Men", "Women")), # Sex
+  rev(c("Sweden", "Europe", "Outside Europe")),  # Place_of_origin
+  rev(c("Partner", "Single")),
+  rev(c("Metropolitan municipalities", "Dense municipalities", "Rural municipalities")),
+  rev(c("Tertiary", "Secondary", "Primary")),
+  rev(c("Military", "Managers", "Science and engineering", "Health care", "Education", "Other professionals", "Associate professionals", "Administration and customer service", "Personal care", "Service and shop sales", "Agriculture and forestry", "Building", "Manufacturing", "Transport", "Mechanical manufacturing", "Cleaners", "Other elementary occupations")),
+  rev(c("≥200%", "120–199%", "80–119%", "60–79%", "<60%")),
+  rev(c("1", "2 to 3", "≥4")),
+  rev(c(">=3 years", "<3 years"))
+)
+  
+  
+    bins_plot_data %>% #filter(Variable=="Occupation") %>%  count(Categories)
+  filter(
+    Variable %in% c(  
+      "Sex",
+  "Age group",
+  "Place of birth",
+  "Civil status",
+  "Municipality",
+  "Education",
+  "Occupation",
+  "Income (% of median)",
+  "Income Sources",
+  "Contractual temporariness"
+  )
+  ) %>% 
+      mutate(Categories = factor(Categories, levels = 
+                                   
+                                   order_category_sociodemographic)) %>% 
+  drop_na() %>% 
+  mutate(text_color = if_else(diff_absolute < -15 | diff_absolute > 15, "white", "black")) %>%
+
+  ggplot(
+   aes(x = YearGroup, y = Categories, fill = diff_absolute)
+   ) +
+  statebins:::geom_rtile(
+    radius = unit(3, "pt"),
+  #  position = position_dodge(1),
+   height =.95, 
+   width = .95
+  ) +
+   geom_text(aes(label = diff_percent,  color = text_color)) +
+  # scico::scale_fill_scico(palette = 'lipari') +
+  # 
+  # scale_fill_gradientn(colors = c(  "#ca9b1a", "#e3b44a", "#f5cc79", "#fae3ac", "#fdf1d6",
+  # "white",
+  # "#c4e2e1", "#88d4d2", "#4bc6c3", "#1ebbbf", "#189a91"),
+  # values = scales::rescale(c(-1, 0, 1))) +
+  
+    scale_fill_gradientn(colors = c("#003B46", "#07575B", "#66A5AD", "#C4DFE6", "#E6F1F5", "#FFD1AA", "#FFA07A", "#F08030"),
+#  values = scales::rescale(c(-1, 0, 1)),
+   values = rescale(c(-20, 0, 20)),  # Ensure infinite values are accounted for
+    limits = c(-20, 20),  # Limits set to -20 and 20
+    na.value = "black",  # Any NA values or out-of-bounds will be black
+   # oob = scales::oob_squish  # Squish out-of-bounds values into the limits
+  ) +
+      scale_color_identity() + # Use the color identity scale to apply the colors directly
+  scale_x_discrete(labels = c("95-99", "00-04", "05-09", "10-14", "15-19", "20-21"),
+                   position = "top",
+                   guide = guide_axis(n.dodge = 2)) + 
+  #coord_fixed() +
+  ggforce::facet_col(~Variable, 
+                     scales = 'free_y', 
+                     space = 'free',
+                     strip.position = 'top')+
+  #facet_wrap(~group, ncol = 1, scales = "free_y") +
+  #theme_void(base_size = 32, base_family = "Oficial") +
+
+  theme(
+   # aspect.ratio = .2,
+    
+    legend.position = "bottom",
+    plot.background = element_rect(fill = bg_col, colour = bg_col),
+    panel.background = element_rect(fill = bg_col, colour = bg_col),
+    panel.grid.major = element_blank(), 
+    panel.grid.minor = element_blank(),
+    axis.title = element_blank(),
+    axis.text.y = element_text(colour = text_col,
+                               hjust = 1,
+                               margin = margin(r = 0),
+                               angle=0),
+    axis.text.x = element_text(colour = text_col,
+                               hjust = .5,
+                               margin = margin(r = 0),
+                               angle=0),
+    axis.line.x = element_line(),
+    axis.ticks.x = element_line(),
+    plot.title.position = "plot",
+    plot.caption.position = "plot",
+    strip.text = element_text(face = "bold", color = "grey10", 
+                              size = 10,
+                              hjust = 0,
+                              margin = margin(t = 0, r = 0, b = 0, l = 0)),
+    strip.background = element_rect(fill = "white", color = "white"),
+    plot.margin = margin(t=10, r=-0, b=10, l=0),
+    plot.title = element_textbox_simple(
+      colour = text_col,
+      hjust = 0.5,
+      halign = 0,
+      size = rel(1.8),
+      face = "bold",
+      margin = margin(b = 10, t = 10),
+      lineheight = 0.5#,
+      #family = body_font
+    )
+  )
+  
+  
+  
+ggsave("plotscbpopulation_reldiff_percent.pdf", height = 20, width = 10)
+ggsave("plotscbpopulation_reldiff.pdf", height = 20, width = 10)
+
+ggsave("plotscbpopulation.pdf", height = 20, width = 10)
+
+
+#############################################################################  
+# worklife plot data
+#############################################################################  
+
+order_category_worklife <- c(
+  rev(c("Private", "Public Regional", "Public Govermental")), # Ownership sector
+  rev(c("1 to 9", "10 to 49", "50 to 249", "≥250")), # Number of employees
+  rev(c(
+    "Agriculture, forestry and fishing", "Mining and quarrying", "Manufacturing",
+    "Electricity, gas, steam and air conditioning supply", "Water supply; sewerage, waste management and remediation activities",
+    "Construction", "Wholesale and retail trade; repair of motor vehicles and motorcycles",
+    "Transportation and storage", "Accommodation and food service activities",
+    "Information and communication", "Financial and insurance activities",
+    "Real estate activities", "Professional, scientific and technical activities",
+    "Administrative and support service activities", "Public administration and defence; compulsory social security",
+    "Education", "Human health and social work activities", "Arts, entertainment and recreation",
+    "Other service activities", "Activities of households as employers; undifferentiated goods- and services-producing activities of households for own use",
+    "Activities of extraterritorial organisations and bodies" # Economic sector
+  )),
+  rev(c(">500%", "0% to 500%", "-500% to 0%", "<-500%")), # Operating profit (% of median)
+  rev(c(">5%", "0% to 5%", "-5% to 0%", "<-5%")), # Operating profit margin
+  rev(c("<10%", "10% to 20%", "≥20%")) # Staff turnover
+)
+
+
+    bins_plot_data %>%
+  filter(
+    Variable %in% c(  
+  "Ownership sector",
+  "Number of employees",
+  "Economic sector",
+  "Operating profit (% of median)",
+  "Operating profit margin",
+  "Staff turnover"
+  )
+  ) %>% 
+      mutate(Categories = factor(Categories, levels = 
+                                   
+                                   order_category_worklife)) %>% 
+  drop_na() %>% 
+  mutate(text_color = if_else(diff_absolute < -10, "white", "black")) %>%
+
+  ggplot(
+   aes(x = YearGroup, y = Categories, fill = diff_absolute)
+   ) +
+  statebins:::geom_rtile(
+    radius = unit(3, "pt"),
+  #  position = position_dodge(1),
+   height =.95, 
+   width = .95
+  ) +
+   geom_text(aes(label = diff_percent,  color = text_color)) +
+  # scico::scale_fill_scico(palette = 'lipari') +
+  # 
+  # scale_fill_gradientn(colors = c(  "#ca9b1a", "#e3b44a", "#f5cc79", "#fae3ac", "#fdf1d6",
+  # "white",
+  # "#c4e2e1", "#88d4d2", "#4bc6c3", "#1ebbbf", "#189a91"),
+  # values = scales::rescale(c(-1, 0, 1))) +
+  
+    scale_fill_gradientn(colors = c("#003B46", "#07575B", "#66A5AD", "#C4DFE6", "#E6F1F5", "#FFD1AA", "#FFA07A", "#F08030"),
+  values = scales::rescale(c(-1, 0, 1))) +
+      scale_color_identity() + # Use the color identity scale to apply the colors directly
+  scale_x_discrete(labels = c("95-99", "00-04", "05-09", "10-14", "15-19", "20-21"),
+                   position = "top",
+                   guide = guide_axis(n.dodge = 2)) + 
+  #coord_fixed() +
+  ggforce::facet_col(~Variable, 
+                     scales = 'free_y', 
+                     space = 'free',
+                     strip.position = 'top')+
+  #facet_wrap(~group, ncol = 1, scales = "free_y") +
+  #theme_void(base_size = 32, base_family = "Oficial") +
+
+  theme(
+   # aspect.ratio = .2,
+    
+    legend.position = "bottom",
+    plot.background = element_rect(fill = bg_col, colour = bg_col),
+    panel.background = element_rect(fill = bg_col, colour = bg_col),
+    panel.grid.major = element_blank(), 
+    panel.grid.minor = element_blank(),
+    axis.title = element_blank(),
+    axis.text.y = element_text(colour = text_col,
+                               hjust = 1,
+                               margin = margin(r = 0),
+                               angle=0),
+    axis.text.x = element_text(colour = text_col,
+                               hjust = .5,
+                               margin = margin(r = 0),
+                               angle=0),
+    axis.line.x = element_line(),
+    axis.ticks.x = element_line(),
+    plot.title.position = "plot",
+    plot.caption.position = "plot",
+    strip.text = element_text(face = "bold", color = "grey10", 
+                              size = 10,
+                              hjust = 0,
+                              margin = margin(t = 0, r = 0, b = 0, l = 0)),
+    strip.background = element_rect(fill = "white", color = "white"),
+    plot.margin = margin(t=10, r=-0, b=10, l=0),
+    plot.title = element_textbox_simple(
+      colour = text_col,
+      hjust = 0.5,
+      halign = 0,
+      size = rel(1.8),
+      face = "bold",
+      margin = margin(b = 10, t = 10),
+      lineheight = 0.5#,
+      #family = body_font
+    )
+  )
+  
+
+
+
+c("#5B92E5", "#A1C4F5", "#DCE4F6", "#FFFFFF", "#FFD1AA", "#FFA07A", "#F06030")
+c("#9B59D0", "#C2A5DE", "#E1D3EC", "#F2F2F2", "#C5E1A5", "#9CCC65", "#7CB342")
+c("#35978F", "#79BFA1", "#B8E2C8", "#E6F2E4", "#FFF2AC", "#FFD966", "#FFC107")
+c("#003B46", "#07575B", "#66A5AD", "#C4DFE6", "#FFD1AA", "#FFA07A", "#F08030")
+c("#003B46", "#07575B", "#66A5AD", "#C4DFE6", "#E6F1F5", "#FFD1AA", "#FFA07A", "#F08030")
+
+c("#8C564B", "#C49C94", "#E4D6C3", "#F7F7F7", "#C7E9C0", "#A1D99B", "#74C476")
+c("#7B3294", "#C2A5CF", "#F7F7F7", "#FFF7BC", "#FDBB84", "#E34A33")
+
+
+c("#173D60", "#515A79" ,"#775E72", "#FDF4D9", "#E6C398", "#E99973", "#A36267") 
+
+
+```
+
+
+
+
+## 3.2 Grouped over and underreached
+
+
+**variables**
+Individnivå: Sex, AgeGroup, Place_of_origin, SSYK, consecutive_years.
+Strukturnivå: SNI_group, Number_of_employees_Category, Turnover_Rate_Category, KommunSize 
+
+EducationLevel, IncomeLevel
+
+**Ideas**
+https://www.quora.com/How-do-I-find-variable-importance-in-random-forest
+https://chat.openai.com/share/49ba24b8-39e6-4214-8f83-2d01ec1ae4a9 
+random sampling to the population and then 
+
+
+# Logistic regression for dataset membership prediction
+model <- glm(dataset ~ sex * age_group * occupation * private_vs_gov * num_employees, family = "binomial", data = combined)
+
+Using machine learning techniques like Random Forests can help identify the most important predictors and understand complex interactions, which might not be easily noticeable:
+
+
+library(randomForest)
+rf_model <- randomForest(dataset ~ sex + age_group + occupation + private_vs_gov + num_employees + ..., data = combined, importance = TRUE)
+varImpPlot(rf_model)
+
+### Read in HPI data
+```{r}
+
+
+ hpa <- read_csv(here::here("..", "..","..", "HPI (DNR XXXXXX)", "Data HPI registeruttag 2023", "HPI", "HPI clean", "EEB_hpb_clean_2023-10-16.csv")) %>% 
+   filter(rowSums(!is.na(select(., EkB_rel_VO2, Astrand_rel_VO2, HeightCM, WeightKG, BloodPressureSystolic, BloodPressureDiastolic))) >= 2,
+         rowSums(!is.na(select(., ExerciseAnswer, TobaccoSmoking, Diet, Health, StressOverall, SymptomBackNeck))) >= 2) %>% 
+     arrange(LopNr, Performed) %>% 
+  mutate(hpa_number = row_number(), 
+         test_count = n(), .by = LopNr) %>% 
+    # take the first hpi tests
+  filter(hpa_number == 1) %>% 
+   select(LopNr, Year, Performed) %>% filter(Year >2014, Year < 2022) 
+   #mutate(selected = 1)
+  
+  # 3. Randomly sample one of each LopNr
+  sampled_data <-  
+    datasets %>% 
+    # join by lopnr and Year with HPI data
+    left_join(hpa, by = join_by(LopNr, Year)) %>% 
+    # filter those that has an HPI test
+    filter(selected==1)  #%>
+
+
+# List of years for the datasets
+years <- 2015:2021
+
+# Base path to the files
+base_path <- file.path("..", "..","..", "HPI (DNR XXXXXX)", "Data HPI registeruttag 2023", "SCB", "Leverans", "Leverans_20240306", "with_hpi_lopnr", "2.filtered")
+
+# Variables to extract from each dataset
+columns_to_keep <- c("LopNr", "Year", "Sex", "AgeGroup", "Place_of_origin", 
+                     "SSYK", "SNI_group", "Number_of_employees_Category", 
+                     "Turnover_Rate_Category", "KommunSize", "EducationLevel", "IncomeLevel")
+
+
+# Function to read, sample, and return the dataset
+read_and_sample <- function(years) {
+  
+   # Construct file name and path
+  file_name <- sprintf("with_HPI_data_categories%d.csv", years)
+  file_path <- file.path(base_path, file_name)
+
+ year <- str_extract(basename(file_path), "\\d{4}") # Extract the year from the file name
+  # Read the data
+  df <- read_csv(file_path) %>% mutate(Year = as.numeric(year)) # Add the Year variable
+  
+
+  # Select the desired columns
+  df <- df %>% select(all_of(columns_to_keep))
+  
+  
+    df <- hpa %>% left_join(df, by = c("LopNr", "Year" = "Year")) %>% 
+  mutate(n=n(), .by = c(LopNr, Performed)) %>% filter(n==1) %>% select(!Performed)
+  
+  return(df)
+}
+
+# Apply the function to each year and combine the results
+combined_sample_with_df <- map_df(years, read_and_sample)
+
+combined_sample_with_df<-combined_sample_with_df %>% drop_na() 
+write_csv(combined_sample_with_df, here::here("..", "..","..", "HPI (DNR XXXXXX)", "Data HPI registeruttag 2023", "SCB", "Leverans", "Leverans_20240306", "with_hpi_lopnr", "7.fig3data", "fig3data_with.csv"))
+
+```
+
+
+### Read in a sample of the population data
+
+Place_of_origin, Civil_status, EducationLevel, Ssyk3_minorlevel, SSYK, IncomeLevel, KommunSize, LoneInk, Income_Sources_Category,
+# worklife organisational
+Ownership_sector, Number_of_employees_Category, Turnover_Rate_Category, Operating_Profit_Margin, Operating_Profit_Margin_Category, Operatingprofit_category, SNI_group, SsykAr,
+
+here::here("..", "..","..", "HPI (DNR XXXXXX)", "Data HPI registeruttag 2023", "SCB", "Leverans", "Leverans_20240306", "with_hpi_lopnr", "2.filtered")
+"consecutive_years", 
+
+```{r}
+# Define the sample size per dataset
+sample_size <- 30000  
+
+# List of years for the datasets
+years <- 2015:2021
+
+# Base path to the files
+base_path <- file.path("..", "..", "..", "HPI (DNR XXXXXX)", "Data HPI registeruttag 2023", 
+                        "SCB", "Leverans", "Leverans_20240306", "without_hpi_lopnr", "2.filtered")
+
+# Variables to extract from each dataset
+columns_to_keep <- c("LopNr", "Sex", "AgeGroup", "Place_of_origin", 
+                     "SSYK", "SNI_group", "Number_of_employees_Category", 
+                     "Turnover_Rate_Category", "KommunSize", "EducationLevel", "IncomeLevel")
+
+# Function to read, sample, and return the dataset
+read_and_sample <- function(year) {
+  # Construct file name and path
+  file_name <- sprintf("without_HPI_data_categories%d.csv", year)
+  file_path <- file.path(base_path, file_name)
+  
+  
+  
+  # Read the data
+  df <- read.csv(file_path)
+  
+  # add year
+  df$year <- year
+  # Select the desired columns
+  df <- df %>% select(all_of(columns_to_keep))
+  
+  # Sample the dataset
+  set.seed(123)  # for reproducibility
+  df_sampled <- sample_n(df, sample_size)
+  
+  return(df_sampled)
+}
+
+# Apply the function to each year and combine the results
+combined_sample_without_df <- map_df(years, read_and_sample)
+
+
+write_csv(combined_sample_without_df, here::here("..", "..","..", "HPI (DNR XXXXXX)", "Data HPI registeruttag 2023", "SCB", "Leverans", "Leverans_20240306", "without_hpi_lopnr", "7.fig3data", "fig3data_without.csv"))
+```
+
+# random forrest
+
+```{r}
+library(tidymodels)
+
+
+# Step 1: Load Data
+combined <- bind_rows(
+  read_csv(here::here("..", "..", "..", "HPI (DNR XXXXXX)", "Data HPI registeruttag 2023", "SCB", "Leverans", "Leverans_20240306", "without_hpi_lopnr", "7.fig3data", "fig3data_without.csv")) %>% mutate(dataset="Population"),
+  read_csv(here::here("..", "..", "..", "HPI (DNR XXXXXX)", "Data HPI registeruttag 2023", "SCB", "Leverans", "Leverans_20240306", "with_hpi_lopnr", "7.fig3data", "fig3data_with.csv")) %>% mutate(dataset="HPA") 
+) %>% mutate(dataset = as.factor(dataset)) %>% select(!c(Year, Performed, n))
+
+combined <- combined %>% drop_na() %>% mutate(all = str_c(Sex, AgeGroup, Place_of_origin, SSYK, Number_of_employees_Category, Turnover_Rate_Category, KommunSize))
+combined %>% count(dataset)
+# Step 2: Create a Random Forest Model Specification
+rf_spec <- rand_forest(
+  trees = 1000,  # Adjust the number of trees
+  mode = "classification"
+) %>% 
+  set_engine("ranger", importance = 'impurity') %>% 
+  set_mode("classification")
+
+# Step 3: Create a Recipe
+recipe <- recipe(dataset ~ ., data = combined) %>% 
+  step_rm(LopNr,EducationLevel, IncomeLevel) %>%  # Remove non-predictive variables (e.g., ID numbers)
+  step_novel(all_nominal(), -all_outcomes()) %>% 
+  step_dummy(all_nominal(), -all_outcomes()) 
+
+
+recipe <- recipe(dataset ~ ., data = combined) %>% 
+  step_rm(LopNr,EducationLevel, IncomeLevel) %>%  # Remove non-predictive variables (e.g., ID numbers)
+  step_novel(all) %>% 
+  step_dummy(all) 
+# Step 4: Prepare Data Split
+set.seed(123)
+data_split <- initial_split(combined, prop = 0.8)
+train_data <- training(data_split)
+test_data <- testing(data_split)
+
+# Step 5: Fit the Model
+rf_fit <- workflow() %>% 
+  add_model(rf_spec) %>% 
+  add_recipe(recipe) %>% 
+  fit(data = train_data)
+
+# Step 6: Evaluate the Model
+rf_results <- rf_fit %>%
+  predict(test_data) %>%
+  bind_cols(test_data) %>%
+  metrics(truth = dataset, estimate = .pred_class)
+
+rf_results
+
+
+rf_fit %>% 
+  extract_fit_parsnip() %>% 
+  vip::vip(num_features = 20)
+
+vip::vip(rf_fit, num_features = 10)
+```
+
+```{r}
+
+combinedX <- combined %>% drop_na() %>% mutate(all = str_c(Sex, AgeGroup, Place_of_origin, SSYK, Number_of_employees_Category, Turnover_Rate_Category, KommunSize)) %>% 
+  dplyr::select(dataset, all)
+# Step 2: Create a Random Forest Model Specification
+rf_spec <- rand_forest(
+  trees = 100,  # Adjust the number of trees
+  mode = "classification"
+) %>% 
+  set_engine("ranger", importance = 'impurity') %>% 
+  set_mode("classification")
+
+# Step 3: Create a Recipe
+# Update the recipe to handle high cardinality
+recipe <- recipe(dataset ~ ., data = combinedX) %>%
+  step_other(all, threshold = 0.05) %>%  # Group infrequent levels into 'other'
+  step_novel(all) %>%
+  step_dummy(all)
+# Step 4: Prepare Data Split
+set.seed(123)
+data_split <- initial_split(combinedX, prop = 0.8)
+train_data <- training(data_split)
+test_data <- testing(data_split)
+
+# Step 5: Fit the Model
+rf_fit <- workflow() %>% 
+  add_model(rf_spec) %>% 
+  add_recipe(recipe) %>% 
+  fit(data = train_data)
+
+# Step 6: Evaluate the Model
+rf_results <- rf_fit %>%
+  predict(test_data) %>%
+  bind_cols(test_data) %>%
+  metrics(truth = dataset, estimate = .pred_class)
+
+rf_results
+
+
+rf_fit %>% 
+  extract_fit_parsnip() %>% 
+  vip::vip(num_features = 20)
+
+vip::vip(rf_fit, num_features = 10)
+```
+
+
+
+https://www.tidymodels.org/start/case-study/
+
+
+```{r}
+model <- glm(dataset ~ Sex * AgeGroup * Number_of_employees_Category *Place_of_origin, family = "binomial", data = combined)
+broom::tidy(model, exponentiate = TRUE)
+```
+
+```{r}
+# Random Forest Model Specification with OOB
+rf_spec <- rand_forest(
+  trees = 1000,  # Adjust the number of trees
+  mode = "classification",
+  mtry = 2,  # Adjust based on number of predictors
+  min_n = 10  # Minimum number of data points in a node
+) %>% 
+  set_engine("ranger", importance = 'impurity', save_pred = TRUE) %>% 
+  set_mode("classification")
+
+# Prepare the recipe
+recipe <- recipe(dataset ~ ., data = combined) %>% 
+  step_rm(LopNr) %>%  # Exclude non-predictive variables
+  step_novel(all_nominal(), -all_outcomes()) %>% 
+  step_dummy(all_nominal(), -all_outcomes())
+
+# Fit the Model
+rf_fit <- workflow() %>% 
+  add_model(rf_spec) %>% 
+  add_recipe(recipe) %>% 
+  fit(data = combined)  # Using all data
+
+# Extracting OOB Error and Feature Importance
+rf_fit %>%
+  pull_workflow_fit() %>%
+  pluck("fit") %>%
+  ranger::importance()  # Check the importance of each feature
+```
+
+# calculating proportions
+
+```{r}
+combined <- bind_rows(
+  read_csv(here::here("..", "..", "..", "HPI (DNR XXXXXX)", "Data HPI registeruttag 2023", "SCB", "Leverans", "Leverans_20240306", "without_hpi_lopnr", "7.fig3data", "fig3data_without.csv")) %>% mutate(dataset="Population"),
+  read_csv(here::here("..", "..", "..", "HPI (DNR XXXXXX)", "Data HPI registeruttag 2023", "SCB", "Leverans", "Leverans_20240306", "with_hpi_lopnr", "7.fig3data", "fig3data_with.csv")) %>% mutate(dataset="HPA") 
+) %>%
+  mutate(dataset = as.factor(dataset)) %>%
+  dplyr::select(Sex, AgeGroup, Place_of_origin, SSYK, Number_of_employees_Category, Turnover_Rate_Category, KommunSize, dataset) %>% drop_na()
+
+
+# Calculate proportions for each group
+proportions <- combined %>%
+  group_by(Sex, AgeGroup, Place_of_origin, SSYK, Number_of_employees_Category, Turnover_Rate_Category, KommunSize, dataset) %>%
+  summarise(count = n(), .groups = 'drop') %>%
+  group_by(dataset) %>%
+  mutate(total = sum(count), proportion = count / total) %>%
+  ungroup()
+
+# Spread proportions for comparison
+proportions_spread <- proportions %>%
+  pivot_wider(names_from = dataset, values_from = proportion, values_fill = list(proportion = 0))
+
+
+proportions_spread <- proportions_spread %>%
+  mutate(difference = Population - HPA) # abs() if all positive values
+
+
+# Identify the groups with the largest differences
+largest_differences <- proportions_spread %>%
+  arrange(difference) %>%
+  head(60)  # Adjust as necessary to see more or fewer groups
+
+# Visualization
+ggplot(largest_differences, aes(x = interaction(Sex, AgeGroup, Place_of_origin, SSYK, Number_of_employees_Category, Turnover_Rate_Category, KommunSize), y = difference, fill = Sex)) +
+  geom_col() +
+  coord_flip() +
+  labs(title = "Top Differences Between Datasets by Demographic Groups", x = "Group", y = "Difference in Proportions") +
+  theme_minimal()
+
+```
+
+
+# clusters
+memory.limit(size=16000)  # Size in MB, adjust based on your system's capacity
+```{r}
+library(dplyr)
+library(tidyr)
+library(cluster)  # For clustering algorithms
+library(factoextra)  # For visualizing clusters
+
+
+# Convert character columns to factors
+combinedfactors <- proportions_spread %>% mutate(str_c)
+  mutate(across(where(is.character), as.factor),
+         across(where(is.numeric), as.factor))
+# Calculate Gower distance
+gower_dist <- daisy(combinedfactors, metric = "gower")
+
+# Perform hierarchical clustering using average linkage
+hc_gower <- hclust(gower_dist, method = "average")
+
+# Plot the dendrogram
+plot(hc_gower, main = "Hierarchical Clustering with Gower Distance")
+
+# Cutting tree to form clusters
+clusters <- cutree(hc_gower, k = 5)  # Adjust k based on your analysis
+
+# Visualizing clusters if needed
+library(factoextra)
+fviz_dend(hc_gower, rect = TRUE, k = 5)
+```
+
+# grouped clusters
+To calculate the grouped differences between datasets for each combination of categorical variables and then use those differences as features in a clustering analysis is an unconventional approach, but it can provide insights into which combinations of variables' categories are most distinctive in terms of representing differences between datasets. Here's a high-level outline of how you might perform such an analysis:
+```{r}
+
+
+
+contingency_table <- combined %>%
+  group_by(Sex, AgeGroup, Place_of_origin, SSYK, Number_of_employees_Category, Turnover_Rate_Category, KommunSize, dataset) %>%
+  tally() %>%
+  pivot_wider(names_from = dataset, values_from = n, values_fill = list(n = 0)) %>%
+  ungroup()
+
+contingency_table <- contingency_table %>%
+  mutate(Difference = HPA - Population)
+
+contingency_table <- contingency_table %>%
+  mutate(Combination = str_c(Sex, AgeGroup, Place_of_origin, SSYK, Number_of_employees_Category, Turnover_Rate_Category, KommunSize, sep = "_"))
+
+# Selecting only the necessary columns for clustering
+clustering_data <- contingency_table %>%
+  select(Combination, Difference)
+
+
+# Convert 'Difference' into a matrix format suitable for hclust()
+distance_matrix <- as.dist(matrix(clustering_data$Difference))
+
+# Perform hierarchical clustering
+hc <- hclust(distance_matrix, method = "ward.D2")
+
+
+
+
+
+
+
+# 2
+
+grouped_differences <- combined %>%
+  group_by(Sex, AgeGroup, Place_of_origin, SSYK, Number_of_employees_Category, Turnover_Rate_Category, KommunSize) %>%
+  summarise(Count_Population = sum(dataset == "Population"), 
+            Count_HPA = sum(dataset == "HPA"), .groups = 'drop') %>%
+  mutate(Total_Count = Count_Population + Count_HPA,
+         Proportion_Population = Count_Population / Total_Count,
+         Proportion_HPA = Count_HPA / Total_Count,
+         Difference = Proportion_HPA - Proportion_Population) %>%
+  ungroup()
+
+grouped_differences <- grouped_differences %>%
+  mutate(Group_Combination = str_c(Sex, AgeGroup, Place_of_origin, SSYK, Number_of_employees_Category, Turnover_Rate_Category, KommunSize, sep = "_"))
+
+# Select only the relevant columns for clustering
+clustering_data <- grouped_differences %>%
+  select(Group_Combination, Difference)
+
+
+set.seed(123)  # for reproducibility
+k <- 5  # Choose the number of clusters
+km_result <- kmeans(clustering_data$Difference, centers = k)
+
+# Add the cluster assignments back to the original data
+clustering_data$Cluster <- km_result$cluster
+
+
+clustering_data %>% arrange(Difference) %>% head(20) %>% 
+ggplot( aes(x = Cluster, y = Group_Combination, fill = Difference)) +
+  geom_tile() +  # Creates a heatmap
+  scale_fill_gradient2(low = "blue", high = "red", mid = "white", midpoint = 0) +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 90, hjust = 1),
+        axis.title = element_blank())
+
+
+
+
+
+
+
+
+# Calculate mean and standard deviation of the differences
+mean_difference <- mean(grouped_differences$Difference, na.rm = TRUE)
+std_dev_difference <- sd(grouped_differences$Difference, na.rm = TRUE)
+
+# Standardize differences to create a score similar to Z-score
+grouped_differences <- grouped_differences %>%
+  mutate(Standardized_Difference = (Difference - mean_difference) / std_dev_difference)
+
+# Rescale to -100 to 100 range
+grouped_differences <- grouped_differences %>%
+  mutate(Score = Standardized_Difference * 100)
+
+
+grouped_differences %>% count(Group_Combination,Score) %>% arrange(Score) %>%  print(n=1000)
+
+
+
+library(MASS)
+
+# Perform MDS
+mds_result <- isoMDS(as.dist(1 - abs(clustering_data$Difference)))  # Convert to dissimilarity
+
+# Create a data frame for plotting
+mds_df <- data.frame(
+  X = mds_result$points[, 1],
+  Y = mds_result$points[, 2],
+  Cluster = grouped_differences$Cluster
+)
+
+# Plot the MDS result
+ggplot(mds_df, aes(x = X, y = Y, color = as.factor(Cluster))) +
+  geom_point(alpha = 0.7) +
+  scale_color_brewer(palette = "Set1") +
+  theme_minimal() +
+  labs(color = "Cluster")
+```
+
+k-modes
+
+```{r}
+library(klaR)  # K-Modes function
+
+# Applying K-Modes Clustering
+kmodes_result <- kmodes(combined[, -1], 5, iter.max = 10, weighted = FALSE)  # Exclude identifier column if present
+
+# Viewing the clustering result
+print(kmodes_result)
+
+# Add cluster assignment to data
+combined <- combined %>%
+  mutate(Cluster = kmodes_result$cluster)
+
+# Analyze cluster characteristics
+cluster_summary <- combined %>%
+  group_by(Cluster) %>%
+  summarise(across(everything(), function(x) Mode(x)), .groups = 'drop')  # Mode function needs to be defined or use any other summary statistic
+
+# Define a simple mode function
+Mode <- function(x) {
+  ux <- unique(x)
+  ux[which.max(tabulate(match(x, ux)))]
+}
+
+print(cluster_summary)
+```
+
+
+2. Logistic Regression
+Fit a logistic regression model predicting dataset membership (i.e., whether a data point belongs to dataset A or B) using the categorical variables as predictors. The coefficients and odds ratios from this model can tell you which characteristics are associated with being in one dataset versus the other.
+
+```{r}
+combined_l <- combined %>%
+  mutate(across(where(is.character), as.factor),
+         dataset_indicator = if_else(dataset == "HPA", 1, 0))
+
+logistic_model <- glm(dataset_indicator ~ Sex + AgeGroup + Place_of_origin + SSYK + Number_of_employees_Category + Turnover_Rate_Category + KommunSize, 
+                      family = binomial(), 
+                      data = combined_l)
+
+summary(logistic_model)
+
+# Coefficient plot
+coef_df <- broom::tidy(logistic_model)
+
+ggplot(coef_df, aes(x = estimate, y = reorder(term, estimate))) +
+  geom_point() +
+  geom_errorbarh(aes(xmin = estimate - std.error, xmax = estimate + std.error), height = 0) +
+  labs(x = "Coefficient Estimate", y = "Predictor")
+
+```
+
+
+3. Propensity Score Matching
+Calculate propensity scores for the likelihood of a data point belonging to one of the datasets based on the categorical variables. Then compare the scores to see which characteristics are more likely in one dataset compared to the other.
+
+
+# MCA
+
+```{r}
+library(FactoMineR)
+
+# Select only the categorical variables and convert them to factor if they are not already
+mca_data <- combined %>%
+  dplyr::select(Sex, AgeGroup, Place_of_origin, SSYK, Number_of_employees_Category, Turnover_Rate_Category, KommunSize) %>%
+  mutate(across(everything(), as.factor))
+
+# Perform MCA
+mca_results <- MCA(mca_data, graph = FALSE)
+mca_results$var
+# Plot the results
+library(factoextra)
+set.seed(123)  # For reproducibility
+sampled_data <- mca_data %>% dplyr::sample_n(size = 1000)  # Adjust size based on your needs
+
+# Perform MCA on the sampled data
+mca_results_sampled <- FactoMineR::MCA(sampled_data, graph = FALSE)
+
+# Visualize the results
+factoextra::fviz_mca_biplot(mca_results_sampled, choice = "mca", axes = c(1, 2),
+                            geom = c("point", "text"), repel = TRUE) # Avoid text overlapping
+
+
+
+mca_df <- as_tibble(mca_results$ind$coord) %>% janitor::clean_names()
+
+ggplot(mca_df, aes(x = dim_1, y = dim_2)) +
+  geom_density_2d_filled() + 
+  theme_minimal() +
+  labs(title = "Density plot of MCA results")
+```
+
+
+# easy way
+
+```{r}
+
+# Directory with summarized files 
 without <- read_csv(here("../../../HPI (DNR XXXXXX)/Data HPI registeruttag 2023/SCB/Leverans/Leverans_20240306/without_hpi_lopnr/4.summarized_within_groups/2017-2021.csv"))
 with <- read_csv(here("../../../HPI (DNR XXXXXX)/Data HPI registeruttag 2023/SCB/Leverans/Leverans_20240306/with_hpi_lopnr/4.summarized_within_groups/2017-2021.csv"))
 
@@ -1683,7 +2851,7 @@ ggsave("combodiff.pdf", height = 8, width = 5)
 
 
 
-# make variables
+# XX. Testing
 
 ```{r}
 glimpse(scb_2012)
@@ -2306,7 +3474,7 @@ calculate_means <-  function(df, vars) {
 
 
 # Assuming 'sampled_data' is your data frame, and you've defined the variable lists
-categorical_vars <- c("AgeGroup", "Sex", "BirthPlace", "MarriedOrPartner", 
+categorical_vars <- c("AgeGroup", "Sex", "Place_of_origin", "MarriedOrPartner", 
                       "EducationLevel", "Ssyk_majorlevel", "IncomeLevel", "LoneInk_grupp", 
                       "Lon_Foretag", "net_sales_category", "operating_profit_category", 
                       "Number_of_employees_Category", "Income_Sources_Category", 
