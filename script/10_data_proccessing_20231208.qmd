@@ -33,8 +33,7 @@ theme:
 
 Paper 1 in work project 1 of the work together series.
 
-The aim of this study was to investigate the reach, defined as the proportion of the target population that participated in the programme, of a nation-wide OHSP that has included Swedish workers for almost 30 years, both in terms of individual and organizational characteristics, and how the reach has changed over the years.
-A second aim was to identify under- and overrepresented groups.
+The aim of this study was to investigate the reach, defined as the proportion of the target population that participated in the programme, of a nation-wide OHSP that has included Swedish workers for almost 30 years, both in terms of individual and organizational characteristics, and how the reach has changed over the years. A second aim was to identify under- and overrepresented groups.
 
 
 
@@ -43,7 +42,6 @@ Layout
 1 script 1 create dataset for HPI data.
 2 script 2, function
 
-::: {.content-hidden when-format="html"}
 #------------------------- \## Libraries
 
 ```{r}
@@ -58,27 +56,6 @@ xfun::pkg_attach(
 
 ```
 
-#------------------------- \## Base theme
-
-```{r}
-# theme_set(
-#   theme_minimal(
-#     base_size = 16,
-#     base_family = "Roboto"
-#   ) +
-#     theme(
-#       legend.position = "top",
-#       panel.grid.major.y = element_blank(),
-#       panel.grid.minor.y = element_blank(),
-#       panel.grid.major.x = element_blank(),
-#       panel.grid.minor.x = element_blank(),
-#       axis.title.y = element_blank(),
-#       axis.title.x = element_blank()
-#     )
-# )
-hpa %>% select(ssyk)
-
-```
 
 #-------------------------
 
@@ -113,242 +90,18 @@ hpa %>% inner_join(fk %>% select(LopNr, FALL_TOM_DATUM), relationship = "many-to
 
 # join SCB, HPI and income data 
 df <- hpa %>% left_join(scb, by = join_by(LopNr, Performed, Year))  %>% 
-    mutate(SSYK1_scb_hpi_combined = coalesce(SSYK1, Ssyk1_hpi_combined)) %>% 
   left_join(scb_vars, by = join_by(LopNr, Performed, Year)) %>% 
   left_join(scb_consecutive, by = join_by(LopNr, Year == year)) %>% 
   left_join(fk_sickness_absence) %>% 
   mutate(Sickness_absence_within_1_year_of_HPA = if_else(is.na(Sickness_absence_within_1_year_of_HPA), "No", Sickness_absence_within_1_year_of_HPA ))
 
 
-
-
-
-# checking for faults
-
-glimpse(df)
-
-df %>% select(LopNr, Age, IncomeLevel,Income_Sources_Category, Performed, Ssyk3, Ssyk3_pop, Ssyk3_2012_J16, Ssyk3_2012_J16_pop, Ssyk3_minorlevel, Ssyk3_J16, Ssyk3_J16_pop, SSYK, SSYK3, SSYK1_scb_hpi_combined, Year) %>%
-    filter(Age > 17) %>%
-  filter(!is.na(IncomeLevel)) %>% 
-  filter(Income_Sources_Category !="No Income Sources" | !is.na(Income_Sources_Category) ) %>% 
-  mutate(across(starts_with("Ssyk3"), as.numeric)) %>%  
-  arrange(LopNr, Performed) %>% 
-  mutate(hpa_number = row_number(), 
-         test_count = n(), .by = LopNr) %>% 
-  filter(hpa_number == 1,
-         Year <= 2021 & Year >1994) %>%  skimr::skim()
-
- 
-
-# Educatrion
-df %>% 
-   filter(Age > 17) %>%
-  filter(LoneInk != 0 | !is.na(LoneInk)) %>% 
- # filter(AntAns != 0 | !is.na(AntAns)) %>% 
-  select(EducationLevel, SUN2000Niva_Old, Year) %>% 
-  mutate(
-    EducationLevel_hpi = if ("SUN2000Niva_Old" %in% names(.)) {
-        case_when(
-          SUN2000Niva_Old %in% c("1", "2") ~ "Primary",
-          SUN2000Niva_Old %in% c("3", "4") ~ "Secondary",
-          SUN2000Niva_Old == "5" ~ "Tertiary <2 years",
-          SUN2000Niva_Old %in% c("6", "7") ~ "Higher Education",
-          TRUE ~ NA_character_
-        )
-      } else if ("Sun2020niva_old" %in% names(.)) {
-        case_when(
-          SUN2000Niva_Old %in% c("1", "2") ~ "Primary",
-          SUN2000Niva_Old %in% c("3", "4") ~ "Secondary",
-          SUN2000Niva_Old == "5" ~ "Tertiary <2 years",
-          SUN2000Niva_Old %in% c("6", "7") ~ "Higher Education",
-          TRUE ~ NA_character_
-        )
-      } else NA_character_
-  ) %>% 
-  group_by(EducationLevel_hpi,EducationLevel) %>% 
-  summarize(n=n(), 
-            median(Year),
-            min(Year),
-            max(Year)) %>% arrange(n) %>% 
-  print(n=100)
-
-# Educatrion
-df %>% 
-   filter(Age > 17) %>%
-  filter(LoneInk != 0 | !is.na(LoneInk)) %>% 
- # filter(AntAns != 0 | !is.na(AntAns)) %>% 
-  select(LopNr, EducationLevel, SUN2000Niva_Old, Year, Performed) %>% 
-  mutate(
-    EducationLevel_hpi = if ("SUN2000Niva_Old" %in% names(.)) {
-        case_when(
-          SUN2000Niva_Old %in% c("1", "2") ~ "Primary",
-          SUN2000Niva_Old %in% c("3", "4") ~ "Secondary",
-          SUN2000Niva_Old == "5" ~ "Tertiary <2 years",
-          SUN2000Niva_Old %in% c("6", "7") ~ "Higher Education",
-          TRUE ~ NA_character_
-        )
-      } else if ("Sun2020niva_old" %in% names(.)) {
-        case_when(
-          SUN2000Niva_Old %in% c("1", "2") ~ "Primary",
-          SUN2000Niva_Old %in% c("3", "4") ~ "Secondary",
-          SUN2000Niva_Old == "5" ~ "Tertiary <2 years",
-          SUN2000Niva_Old %in% c("6", "7") ~ "Higher Education",
-          TRUE ~ NA_character_
-        )
-      } else NA_character_
-  ) %>% 
-  group_by(EducationLevel_hpi,EducationLevel) %>%
-  #filter(!is.na(EducationLevel_hpi), is.na(EducationLevel)) %>% 
-  filter(EducationLevel_hpi != EducationLevel) %>% 
-  ungroup() %>% 
-  count(Year) %>% arrange(n) %>%  print(n=100) %>% arrange(desc(n))
-
-
-# civil status
-df %>% select(Civil_status, Civil, Year) %>% 
-  filter(Year<2022, Year>1994) %>% 
-  mutate(
-     Civil_status_hpi = case_when(
-      Civil %in% c("G", "RP") ~ "Partner",  # Married or Registered Partner
-      Civil %in% c("OG", "S", "Ä", "SP", "EP") ~ "Single",  # Other categories
-      TRUE ~ NA_character_  # Assign NA to cases that do not match any condition
-    )
-  ) %>% 
-  group_by(Civil_status_hpi, Civil_status)%>% 
-  summarise(n=n(), min(Year), max(Year), median(Year)) %>% 
-  arrange(n)
-
-
-df %>% 
-  select(Civil_status, Civil, Year) %>% 
-  filter(Year<2022, Year>1994) %>% 
-  mutate(
-     Civil_status_hpi = case_when(
-      Civil %in% c("G", "RP") ~ "Partner",  # Married or Registered Partner
-      Civil %in% c("OG", "S", "Ä", "SP", "EP") ~ "Single",  # Other categories
-      TRUE ~ NA_character_  # Assign NA to cases that do not match any condition
-    )
-  ) %>% 
-  group_by(Civil_status,Civil_status_hpi)%>% 
- filter(!is.na(Civil_status_hpi), is.na(Civil_status)) %>%
- ungroup() %>% 
-  count(Civil_status, Year) %>% arrange(n) %>%  print(n=100) 
-
-# Birthplace
-df %>% 
-  select(BirthPlace, FodelseLandEU28, Year) %>% 
-  filter(Year<2022, Year>1994) %>% 
-  mutate(
-        BirthPlace_hpi = case_when(
-      FodelseLandEU28 == "Sverige" ~ "Sweden",
-      FodelseLandEU28 %in% c("EU utom Norden", "Europa utom EU och Norden", "Norden utom Sverige") ~ "Europe",
-      FodelseLandEU28 %in% 'Okänt'  ~ NA_character_,
-      TRUE ~ "Outside Europe"
-    ),
-  ) %>% 
-  group_by(BirthPlace_hpi, BirthPlace)%>% 
-  summarise(n=n(), min(Year), max(Year), median(Year)) %>% 
-  arrange(n)
-
-
-df %>% 
-  select(BirthPlace, FodelseLandEU28, Year) %>% 
-  filter(Year<2022, Year>1994) %>% 
-  mutate(
-        BirthPlace_hpi = case_when(
-      FodelseLandEU28 == "Sverige" ~ "Sweden",
-      FodelseLandEU28 %in% c("EU utom Norden", "Europa utom EU och Norden", "Norden utom Sverige") ~ "Europe",
-      FodelseLandEU28 %in% 'Okänt'  ~ NA_character_,
-      TRUE ~ "Outside Europe"
-    ),
-  ) %>% 
-  group_by(BirthPlace_hpi, BirthPlace)%>% 
-   filter(!is.na(BirthPlace_hpi), is.na(BirthPlace)) %>%
- ungroup() %>% 
-  count(BirthPlace, Year) %>% arrange(n) %>%  print(n=100) 
-
-
-
-
-# SSYK 2 siffernivå
-
-df %>% 
-  select(Ssyk3_2012_J16, Ssyk3_2012_J16_pop, Year) %>% 
-  filter(Year<2022, Year>1994) %>% 
-  mutate(Ssyk3_2012_J16 = str_sub(Ssyk3_2012_J16, 1, 1),
-         Ssyk3_2012_J16_pop = str_sub(Ssyk3_2012_J16_pop, 1, 1)) %>% 
-    group_by(Ssyk3_2012_J16, Ssyk3_2012_J16_pop)%>% 
-  filter(Ssyk3_2012_J16 != Ssyk3_2012_J16_pop) %>% 
-  ungroup() %>% filter(Year==2014) %>% 
-  count(Year) %>% arrange(n) %>%  print(n=100) %>% arrange(desc(n))
-
-# per år diff
-df %>% 
-  select(Ssyk3, Ssyk3_pop, Year) %>% 
-  filter(Year<2022, Year>1994) %>% 
-  mutate(Ssyk3 = str_sub(Ssyk3, 1, 1),
-         Ssyk3_pop = str_sub(Ssyk3_pop, 1, 1)) %>% 
-    group_by(Ssyk3, Ssyk3_pop)%>% 
-  #filter(!is.na(EducationLevel_hpi), is.na(EducationLevel)) %>% 
-  filter(Ssyk3 != Ssyk3_pop) %>% 
-  ungroup() %>% 
-  count(Year) %>% arrange(n) %>%  print(n=100) %>% arrange(desc(n))
-
-
-# is na in hpi data
-df %>% 
-  select(Ssyk3, Ssyk3_pop, Year) %>% 
-  filter(Year<2022, Year>1994) %>% 
-  mutate(Ssyk3 = str_sub(Ssyk3, 1, 1),
-         Ssyk3_pop = str_sub(Ssyk3_pop, 1, 1)) %>% 
-    group_by(Ssyk3, Ssyk3_pop)%>% 
-  filter(is.na(Ssyk3_pop), !is.na(Ssyk3)) %>% 
-  
-  ungroup() %>% 
-  count(Ssyk3_pop, Ssyk3, Year) %>% arrange(desc(n))
-
-# 
-df %>% 
-   filter(Year<2022, Year>1994, Age > 17, LoneInk != 0 , !is.na(LoneInk), !is.na(Income_Sources_Category)) %>%
-  mutate(ssyk_hpi=coalesce(as.numeric(Ssyk3), as.numeric(Ssyk3_J16), as.numeric(Ssyk3_2012_J16))) %>%  count(is.na(Ssyk3_minorlevel))
-  group_by(ssyk_hpi, Ssyk3_minorlevel) %>% 
-  summarise(n=n())
-
-
-       Age < 18 ~ "-Under 18 years of age, n={formatC(.excluded, big.mark = ',',format = 'fg')}",
-    LoneInk == 0 | is.na(LoneInk) ~ "-No verified income, n={formatC(.excluded, big.mark = ',',format = 'fg')}",
-    Income_Sources_Category=="No Income Sources" | is.na(Income_Sources_Category) 
-
-# Year# YearCivil
-df %>% count(SsykAr.x,SsykAr.y, Year) %>% view()
-df %>% group_by(as.numeric(SsykAr.y)) %>% summarise(n=n(), min(Year), max(Year)) %>% arrange(desc(n))
-df %>% count(as.numeric(SsykAr.y)) %>% arrange(desc(n))
-
-
-# is not equal ssyk
-df %>% group_by(Ssyk3_2012_J16, Ssyk3_2012_J16_pop) %>% summarise(n=n(), min(Year), max(Year),
-                                                                  min(SsykAr.y, na.rm = TRUE), max(SsykAr.y, na.rm = TRUE),
-                                                                  min(SsykAr.x, na.rm = TRUE), max(SsykAr.x, na.rm = TRUE)) %>% arrange(desc(n)) %>% 
-  filter(Ssyk3_2012_J16 != Ssyk3_2012_J16_pop)
-
-df %>% group_by(Ssyk3, Ssyk3_pop) %>% summarise(n=n(), min(Year), max(Year)) %>% arrange(desc(n)) %>% 
-  filter(Ssyk3 != Ssyk3_pop)
-
-
-
-df %>% filter(as.numeric(SsykAr.y)<1996) %>% select(Ssyk3)
-
-
-
 ```
 
 
-
 # Variable creation
-:::
-
 ```{r}
-# data from tillväxtverket, another possibility could be skr
+# data from tillväxtverket
 metropolitan_municipalities <- c("114", "123", "126", "127", "128", "136", "138", "139", "160", 
                                  "162", "163", "180", "181", "182", "183", "184", "186", "191", 
                                  "1230", "1231", "1262", "1280", "1281", "1402", "1480", "1481")
@@ -387,50 +140,6 @@ rural_municipalities <- c("125", "128", "188", "192", "319", "331", "360", "382"
 
 
 
-# 96 513 personal care
-
-   
-
-
-   df %>% select(SSYK1_scb_hpi_combined, SSYK2, SSYK1, Ssyk2_hpi_combined, Ssyk3_J16, Ssyk3, Ssyk3_2012_J16) %>% 
-     mutate(
-       SSYK2_2012 = str_extract(Ssyk3_2012_J16, "\\b\\d{3}\\b") %>% substr(1, 2),
-       SSYK3_96 = coalesce(Ssyk3_J16, Ssyk3),
-       SSYK = case_when(SSYK1 == 0 ~ "Military",
-                        SSYK1 == 1 ~ "Managers",
-                        SSYK2 == 21 ~ "Science and engineering",
-                        SSYK2 == 22 ~ "Health care",
-                        SSYK2 == 23 ~ "Education",
-                        SSYK2 >= 24 & SSYK2 < 30 ~ "Other professionals",
-                        SSYK1 == 3 ~ "Associate professionals",
-                        SSYK1 == 4 ~ "Admninistration and customer service",
-                        SSYK3_96 == 513 | SSYK2_2012 == 53 ~ "Personal care",
-                        SSYK2_2012 > 50 & SSYK2_2012 < 54 | 
-                          SSYK2_2012 >= 54 & SSYK2_2012 < 60 | 
-                          str_starts(as.character(SSYK3_96), "5") ~ "Service and shop sales",
-                        SSYK1 == 6 ~ "Agriculture and forrestry",
-                        SSYK2 == 71 ~ "Building",
-                        SSYK2 > 71 & SSYK2 < 80 ~ "Manufacturing",
-                        SSYK2 == 83 ~ "Transport",
-                        SSYK2 >= 80 & SSYK2 < 83 | SSYK2 >= 84 & SSYK2 < 90 ~ "Mechanical manufacturing",
-                        SSYK2 == 91 ~ "Cleaners",
-                        SSYK2 > 91 ~ "Other elementary occupations",
-                        TRUE ~ NA_character_)) %>% 
-     group_by(SSYK1, SSYK) %>% 
-     summarise(n())
-# 
-# df %>%
-#   janitor::tabyl(SSYK1, Ssyk1_hpi_combined) %>%
-#   janitor::adorn_totals("row") %>%  # Adds totals for rows, optional
-#   janitor::adorn_totals("col") %>%  # Adds totals for columns, optional
-#   janitor::adorn_percentages("row") %>%  # Converts counts to percentages by row
-#   janitor::adorn_pct_formatting(digits = 1) %>%  # Formats percentages, adjust digits as needed
-#   janitor::adorn_ns() 
-
-
-
-
-
 df1 <- df %>% 
    mutate(Kommun=str_replace(Kommun, "^0+", "")) %>% 
   # Convert Year to date and create 5-year periods
@@ -453,8 +162,8 @@ df1 <- df %>%
   # Categorize Civil status
     mutate(Civil_status_hpi = case_when(
     Civil %in% c("G", "RP") ~ "Partner",  # Married or Registrerad Partner
-    Civil %in% c("OG", "S", "Ä", "SP", "EP") ~ "Single",  # Other categories (you can specify these)
-    TRUE ~ NA_character_  # Assign NA to cases that do not match any condition
+    Civil %in% c("OG", "S", "Ä", "SP", "EP") ~ "Single",  # Other categories 
+    TRUE ~ NA_character_  
   )) %>% 
   # Categorize Birth country
   mutate(BirthPlace_hpi = case_when(
@@ -479,106 +188,12 @@ df1 <- df %>%
     SUN2000Niva_Old %in% 6:7 ~ "Higher Education",
     TRUE ~ NA_character_
   )) %>% 
-    # Divide income into quartiles
-  # mutate(IncomeQuartile = ntile(LoneInk, 4), 
-  #        .by = Period) %>%
-  #  mutate(IncomeLevel_CSFVI = case_when(
-  #   CSFVI >= 2 * median(CSFVI) ~ "≥200%",
-  #   CSFVI >= 1.2 * median(CSFVI) & CSFVI < 2 * median(CSFVI) ~ "120–199%",
-  #   CSFVI >= 0.8 * median(CSFVI) & CSFVI < 1.2 * median(CSFVI) ~ "80–119%",
-  #   CSFVI >= 0.6 * median(CSFVI) & CSFVI < 0.8 * median(CSFVI) ~ "60–79%",
-  #   CSFVI < 0.6 * median(CSFVI) ~"<60%",
-  #   TRUE ~ NA_character_
-  # ),
-  # Median_LoneInk = median(LoneInk, na.rm = TRUE),
-  #   IncomeLevel = case_when(
-  #     LoneInk >= 2 * Median_LoneInk ~ "≥200%",
-  #     LoneInk >= 1.2 * Median_LoneInk & LoneInk < 2 * Median_LoneInk ~ "120–199%",
-  #     LoneInk >= 0.8 * Median_LoneInk & LoneInk < 1.2 * Median_LoneInk ~ "80–119%",
-  #     LoneInk >= 0.6 * Median_LoneInk & LoneInk < 0.8 * Median_LoneInk ~ "60–79%",
-  #     LoneInk < 0.6 * Median_LoneInk ~ "<60%",
-  #     TRUE ~ NA_character_
-  #   ),
-# IncomeLevel_LonFInk = case_when(
-#     LonFInk >= 2 * median(LonFInk) ~ "≥200%",
-#     LonFInk >= 1.2 * median(LonFInk) & LonFInk < 2 * median(LonFInk) ~ "120–199%",
-#     LonFInk >= 0.8 * median(LonFInk) & LonFInk < 1.2 * median(LonFInk) ~ "80–119%",
-#     LonFInk >= 0.6 * median(LonFInk) & LonFInk < 0.8 * median(LonFInk) ~ "60–79%",
-#     LonFInk < 0.6 * median(LonFInk) ~"<60%",
-#     TRUE ~ NA_character_
-#   ), .by = Period)  %>% 
-  # combine occupation
+ 
     mutate(
-  SSYK1_scb_hpi_combined = coalesce(SSYK1, Ssyk1_hpi_combined),
-  # Categorize occupation
-    SSYK_WB = case_when(SSYK1_scb_hpi_combined <= 4 ~ "White-Collar",
-                             SSYK1_scb_hpi_combined > 4 ~ "Blue-Collar"),
-SSYK_Category = case_when(
-    SSYK1_scb_hpi_combined %in% 1:3 ~ "High-Skilled",                        # High-skilled group
-    SSYK1_scb_hpi_combined %in% 4:5 ~ "Clerical and Service Workers",        # Clerical and service workers group
-    SSYK1_scb_hpi_combined %in% 6:8 ~ "Skilled Manual",        # Skilled manual or blue-collar group
-    SSYK1_scb_hpi_combined == 9 ~ "Elementary Occupations"                   # Elementary occupations group
-),
-SSYK1_scb_hpi_combined_char = case_when(
-    SSYK1_scb_hpi_combined == 0 ~ "Armed forces occupations",
-    SSYK1_scb_hpi_combined == 1 ~ "Managers",
-    SSYK1_scb_hpi_combined == 2 ~ "Occupations requiring advanced level of higher education",
-    SSYK1_scb_hpi_combined == 3 ~ "Occupations requiring higher education qualifications or equivalent",
-    SSYK1_scb_hpi_combined == 4 ~ "Administration and customer service clerks",
-    SSYK1_scb_hpi_combined == 5 ~ "Service, care and shop sales workers",
-    SSYK1_scb_hpi_combined == 6 ~ "Agricultural, horticultural, forestry and fishery workers",
-    SSYK1_scb_hpi_combined == 7 ~ "Building and manufacturing workers",
-    SSYK1_scb_hpi_combined == 8 ~ "Mechanical manufacturing and transport workers, etc.",
-    SSYK1_scb_hpi_combined == 9 ~ "Elementary occupations"
-  ),
+
        SSYK2_2012 = str_extract(Ssyk3_2012_J16, "\\b\\d{3}\\b") %>% substr(1, 2),
        SSYK3_96 = coalesce(Ssyk3_J16, Ssyk3),
-       SSYK = case_when(SSYK1 == 0 ~ "Military",
-                        SSYK1 == 1 ~ "Managers",
-                        SSYK2 == 21 ~ "Science and engineering",
-                        SSYK2 == 22 ~ "Health care",
-                        SSYK2 == 23 ~ "Education",
-                        SSYK2 >= 24 & SSYK2 < 30 ~ "Other professionals",
-                        SSYK1 == 3 ~ "Associate professionals",
-                        SSYK1 == 4 ~ "Admninistration and customer service",
-                        SSYK3_96 == 513 | SSYK2_2012 == 53 ~ "Personal care",
-                        SSYK2_2012 > 50 & SSYK2_2012 < 54 | 
-                          SSYK2_2012 >= 54 & SSYK2_2012 < 60 | 
-                          str_starts(as.character(SSYK3_96), "5") ~ "Service and shop sales",
-                        SSYK1 == 6 ~ "Agriculture and forrestry",
-                        SSYK2 == 71 ~ "Building",
-                        SSYK2 > 71 & SSYK2 < 80 ~ "Manufacturing",
-                        SSYK2 == 83 ~ "Transport",
-                        SSYK2 >= 80 & SSYK2 < 83 | SSYK2 >= 84 & SSYK2 < 90 ~ "Mechanical manufacturing",
-                        SSYK2 == 91 ~ "Cleaners",
-                        SSYK2 > 91 ~ "Other elementary occupations",
-                        TRUE ~ NA_character_),
-
-SNI = substr(IndustryCodeTopSNI2007, 1, 1),
-SNI = case_when(
-    SNI == "A" ~ "Agriculture, forestry and fishing",
-    SNI == "B" ~ "Mining and quarrying",
-    SNI == "C" ~ "Manufacturing",
-    SNI == "D" ~ "Electricity, gas, steam and air conditioning supply",
-    SNI == "E" ~ "Water supply; sewerage, waste management and remediation activities",
-    SNI == "F" ~ "Construction",
-    SNI == "G" ~ "Wholesale and retail trade; repair of motor vehicles and motorcycles",
-    SNI == "H" ~ "Transportation and storage",
-    SNI == "I" ~ "Accommodation and food service activities",
-    SNI == "J" ~ "Information and communication",
-    SNI == "K" ~ "Financial and insurance activities",
-    SNI == "L" ~ "Real estate activities",
-    SNI == "M" ~ "Professional, scientific and technical activities",
-    SNI == "N" ~ "Administrative and support service activities",
-    SNI == "O" ~ "Public administration and defence; compulsory social security",
-    SNI == "P" ~ "Education",
-    SNI == "Q" ~ "Human health and social work activities",
-    SNI == "R" ~ "Arts, entertainment and recreation",
-    SNI == "S" ~ "Other service activities",
-    SNI == "T" ~ "Activities of households as employers; undifferentiated goods- and services-producing activities of households for own use",
-    SNI == "U" ~ "Activities of extraterritorial organisations and bodies",
-    TRUE ~ SNI # Keeps the original value if none of the above conditions are met
-  ),
+   
 BMI_cat = case_when(BMI <25 ~ "<25",
                     BMI >= 25 & BMI < 30 ~ "≥25 & <30",
                     BMI >= 30 ~ "≥30",
@@ -586,9 +201,9 @@ BMI_cat = case_when(BMI <25 ~ "<25",
 TRUE ~ NA_character_),
 astr_cat = if_else(Astrand_rel_VO2 > 32, "≥32", "<32"),
 ExerciseDi = case_when(
-    ExerciseAnswer %in% 1 ~ "Never",   
-    ExerciseAnswer %in% 2 ~ "irregular",   
-    ExerciseAnswer %in% 3:5 ~ "Weekly"
+    ExerciseAnswer %in% 1:2 ~ "Never or irregularly",   
+    ExerciseAnswer %in% 3 ~ "1-2 times/week",
+    ExerciseAnswer %in% 4:5 ~ ">2 times/week",
     ),
 TobaccoSmokingDi = case_when(
     TobaccoSmoking %in% 1:3 ~ "Daily",    
@@ -605,7 +220,7 @@ PhysicalWorkSituation = case_when(
       PhysicalWorkSituation == "Periodvis mycket fysiskt krävande arbete" ~ "Occasionally highly physically demanding work",
       PhysicalWorkSituation == "Rörligt arbete" ~ "Physically active work",
       PhysicalWorkSituation == "Stillasittande med inslag av rörligt arbete" ~ "Sedentary work",
-      TRUE ~ PhysicalWorkSituation # keeps original value if none of the above conditions are met
+      TRUE ~ PhysicalWorkSituation 
     ),
 PhysicalWorkSituationDi = case_when(
     PhysicalWorkSituation %in% c("Occasionally physically demanding work", "Occasionally highly physically demanding work") ~ "Physically demanding work",             
@@ -629,22 +244,8 @@ PhysicalWorkSituationDi = case_when(
              levels = c("Sweden", "Europe", "Outside Europe")),
     IncomeLevel =
       factor(IncomeLevel,
-             levels = c("≥200%", "120–199%", "80–119%", "60–79%", "<60%")),
-        SSYK_Category =
-      factor(SSYK_Category,
-             levels = c("High-Skilled", "Skilled Manual", "Clerical and Service Workers", "Elementary Occupations")),
-   SSYK1_scb_hpi_combined_char = factor(SSYK1_scb_hpi_combined_char, levels = c(
-    "Armed forces occupations",
-    "Managers",
-    "Occupations requiring advanced level of higher education",
-    "Occupations requiring higher education qualifications or equivalent",
-    "Administration and customer service clerks",
-    "Service, care and shop sales workers",
-    "Agricultural, horticultural, forestry and fishery workers",
-    "Building and manufacturing workers",
-    "Mechanical manufacturing and transport workers, etc.",
-    "Elementary occupations"
-  )),
+             levels = c("≥200%", "120 to <200%", "80 to <120%", "60 to <80%", "<60%")),
+
   SSYK = factor(SSYK, levels = c(
     "Military",
     "Managers",
@@ -690,7 +291,7 @@ Operating_Profit_Margin_Category = factor(Operating_Profit_Margin_Category, leve
 )),
 Turnover_Rate_Category = factor(Turnover_Rate_Category, levels = c(
   "<10%",
-  "10% to 20%",
+  "10% to <20%",
   "≥20%"
 )),
 consecutive_years_category = factor(consecutive_years_category, levels = c(
@@ -725,7 +326,7 @@ consecutive_years_category = factor(consecutive_years_category, levels = c(
              levels = c("Never", "occationally", "Daily")),
         ExerciseDi = 
       factor(ExerciseDi, 
-             levels = c("Weekly", "irregular", "Never")),
+             levels = c("Never or irregularly", "1-2 times/week", ">2 times/week")),
             HealthDi = 
       factor(HealthDi, 
              levels = c("Good", "Neutral", "Poor")),
@@ -739,62 +340,36 @@ consecutive_years_category = factor(consecutive_years_category, levels = c(
 
 # Data driven flowchart of data in/ex-clusion
 
-Could be a possible figure 1 or appendix figure.
-
-**questionnaire 2 physilogical 2** = 2 out of physiological tests (EkB_rel_VO2, Astrand_rel_VO2, HeightCM, WeightKG, BloodPressureSystolic, BloodPressureDiastolic) AND 2 out of the most answered questionnaire variables (ExerciseAnswer, TobaccoSmoking, Diet, Health, StressOverall, SymptomBackNeck) is required to be in this manuscript.
-
-
 ```{r}
 
 # global options for dtrackr
-
 old = options(
- #dtrackr.strata_glue="{.group}:{.value}",
-  #dtrackr.strata_sep="; ",
   dtrackr.strata_glue="{tolower(.value)}",
   dtrackr.strata_sep=", ",
   dtrackr.default_message = "n={formatC(.count, big.mark = ',',format = 'fg')}"
-  #dtrackr.default_headline = "subgroup: {.strata}"
 )
-# reset options 
-#options(old)
-# df2 %>% filter(Income_Sources_Category=="No Income Sources") %>%  select(Income_Sources_Category, LoneInk) %>%  print(n=170)
+
+
 
 df2 <-
 df1 |> 
-
- # status(.messages = "n={formatC(.count, big.mark = ',')}") %>%  
         arrange(LopNr, Performed) %>% 
   mutate(hpa_number = row_number(), 
          test_count = n(), .by = LopNr) %>% 
   filter(hpa_number == 1,
          Year <= 2021) %>% 
-    track(#.headline = "Flow chart     ",
-        #.messages=""
-  ) %>%
+    track() %>%
   filter(rowSums(!is.na(select(., EkB_rel_VO2, Astrand_rel_VO2, HeightCM, WeightKG, BloodPressureSystolic, BloodPressureDiastolic))) >= 2,
          rowSums(!is.na(select(., ExerciseAnswer, TobaccoSmoking, Diet, Health, StressOverall, SymptomBackNeck))) >= 2, 
          .messages = "<2 questionnarie and\n<2 physiological variables\nn={formatC(.excluded, big.mark = ',',format = 'fg')}", .headline = "" ) %>% 
    status(.messages = "n={formatC(.count, big.mark = ',')}") %>% 
   exclude_all(
     Year < 1995 ~ "-HPAs before 1995, n={formatC(.excluded, big.mark = ',',format = 'fg')}",
-    #Year > 2021 ~ "-HPAs after 2021, n={formatC(.excluded, big.mark = ',',format = 'fg')}",
        Age < 18 ~ "-Under 18 years of age, n={formatC(.excluded, big.mark = ',',format = 'fg')}",
     LoneInk == 0 | is.na(LoneInk) ~ "-No verified income, n={formatC(.excluded, big.mark = ',',format = 'fg')}",
     Income_Sources_Category=="No Income Sources" | is.na(Income_Sources_Category) ~ "-No verified income source, n={formatC(.excluded, big.mark = ',',format = 'fg')}",
     .headline = ""
-   # Age > 65 ~  "{formatC(.excluded, big.mark = ',',format = 'fg')} with age > 65" ,
-   # is.na(SSYK1_scb_hpi_combined) ~  "{formatC(.excluded, big.mark = ',',format = 'fg')} with NA in SSYK" ,
-   # is.na(Civil) ~  "{formatC(.excluded, big.mark = ',',format = 'fg')} with NA in Civil",
-  #  FodelseLandEU28=="Okänt" ~  "{formatC(.excluded, big.mark = ',',format = 'fg')} with 'Okänt'in fodelselandEU28",
-   # SUN2000Niva_Old=="*" ~  "{formatC(.excluded, big.mark = ',',format = 'fg')} with NA in education (*)"
   ) %>% 
- # status(.messages = "n={formatC(.count, big.mark = ',')}") %>% 
-
- # status() %>% 
-  # group_by(test_count>1, .headline = "Those with 1 vs those with >1 tests     ",
-  #          .messages = "") %>% 
-  # comment(" has {formatC(.count, big.mark = ',')} items") %>%
   ungroup(.headline = "Total study population\nn={formatC(.count, big.mark = ','  )  }                    ",
           .messages = "") 
 
@@ -805,47 +380,19 @@ df2 %>% flowchart(
   formats = c("png", "pdf", "svg")
 )
 
-df2 <- df2 %>% as_tibble()
-#df1 |> 
- # flowchart(filename="testtype",
-  #          formats = c("png","svg", "pdf"),
-   #                      maxWidth=20, 
-    #                    maxHeight = 20)
-
-
 ```
 
-::: {.content-hidden when-format="html"}
+
 # -------------------------
 
 # Function for creating table 1
-:::
 
 ```{r Table functions}
-
-# test statistics
-# continuous multi group: anova/Kruskal  (parametric/non-parametric)
-# continuous one or two group: t-test/Man-Whitney U (parametric/non-parametric)
-# categorical two or more groups: Pearson's chi-squared or Fisher’s exact test or 
-# Monte Carlo simulation approach, which is an approximate method.
-# if any of the expected frequencies are < 5 in the contingency table
-
-# https://www.saem.org/about-saem/academies-interest-groups-affiliates2/cdem/for-students/cdem-voice/educational-research-column/educational-research-column-choosing-wisely-chi-square-vs.-fisher-s-exact
-
-# https://statsandr.com/blog/chi-square-test-of-independence-in-r/#chi-square-test-of-independence-in-r
 
 ###################
 # FACTOR FUNCTION #
 ###################
-# df <- t2
-# var <- sym("Age")
-# var <- sym("EducationLevel")
-# group <- sym("Period")
 
-
-# d <- factor.fun(df, Contraception, ModifiedM4)
-# d <- factor.fun(df, BV_Diagnosis_v3, ModifiedM4) 
-# d <- factor.fun(df, `Below LLD Estradiol`, Contraception) 
 factor.fun <- function(df, var, group){
   var <- enquo(var)
   group <- enquo(group)
@@ -875,14 +422,14 @@ round.fun <- function(x) {
     {test <- fisher.test(contingency.table, simulate.p.value = TRUE, B = 20000)
     t <- "4"}
     
-  p.val <- test[["p.value"]] #%>% formatC(., format = "e", digits = 1) %>% paste0("$$ ",.,"^2 $$")
+  p.val <- test[["p.value"]] 
   if(p.val == ""){p.val <- NA}
     else if(p.val < 0.01){p.val <- "<0.01"}
       else{p.val <- sprintf(p.val, fmt = '%#.2f')}
   
   
   na <- sum(is.na(pull(df, !!var)))
-  tab <- tibble("Variables"=as_label(var),"na"=as.numeric(na), "p-value"=p.val) #as.numeric(p.val)
+  tab <- tibble("Variables"=as_label(var),"na"=as.numeric(na), "p-value"=p.val) 
   
   # mean, min and max:
   sum_tab <- df %>%
@@ -894,7 +441,7 @@ round.fun <- function(x) {
     mutate(sum = map(data, ~sum(.$n))) %>%
     unnest(c(data, sum)) %>%
     mutate(percent = round.fun(100*(n/sum))) %>% 
-    mutate( val = paste0(format(.$n, big.mark = ",")," (",.$percent,"%)")) %>% # !!as_label(var) :
+    mutate( val = paste0(format(.$n, big.mark = ",")," (",.$percent,"%)")) %>% 
     select(-sum, -n, -percent) %>%
     pivot_wider(., names_from = (!!group), values_from = val ) %>%
     dplyr::rename(Variables = as_label(var)) %>%
@@ -906,8 +453,6 @@ round.fun <- function(x) {
    t <- bind_rows(tab, sum_tab) %>% mutate("t" = t)
   
   return(t)
-  #return(sum_tab)
-  #return(list(tab, na, p.val, sum_tab))
 }
 
 
@@ -915,9 +460,7 @@ round.fun <- function(x) {
 #######################
 # CONTINUOUS FUNCTION #
 #######################
-# d_ <- continuous.fun(df, Age, Period)
-# d_ <- continuous.fun(df2, Astrand_MaxVO2, Period, "mean_ci")
-#d_ <- continuous.fun(df2, Health, Period, "mean_ci")
+
 continuous.fun <- function(df, var, group, stat_type){
   var <- enquo(var)
   group <- enquo(group)
@@ -942,23 +485,6 @@ round.fun <- function(x) {
   return(df)
 }
 
-#### Helper function for numeric summary (mean and 95% CI) ####
-#  mean_confidence.fun <- function(m, se) {
-#     ci_lower <- m - 1.96 * se
-#     ci_upper <- m + 1.96 * se
-# 
-#     # Check if the variable is 'Astrand_MaxVO2'
-#     if({{var}} == "Astrand_MaxVO2") {
-#         # Do not round for 'Astrand_MaxVO2'
-#         return(sprintf("%s (%s-%s)", m, ci_lower, ci_upper))
-#     } else {
-#         # Round to 2 decimal places for other variables
-#         ci_lower <- round(ci_lower, 2)
-#         ci_upper <- round(ci_upper, 2)
-#         return(sprintf("%.1f (%.1f-%.1f)", m, ci_lower, ci_upper))
-#     }
-# } 
-#### ####
   
   mean_confidence.fun <- function(m, se) {
     m <- m
@@ -993,10 +519,8 @@ round.fun <- function(x) {
     }
   }
   l <- unique(pull(df, !!group))
-  #l <- c("DMPA", "no HC")
   
   # mean, min max or similar
-  #if(stat_type == "median")else{stat_type == "mean"}
   sum_tab <- df %>%
     select(!!var, !!group) %>%
     mutate(na = sum(is.na(!!var))) %>%
@@ -1043,15 +567,12 @@ round.fun <- function(x) {
     mutate("t" = t)
 
   return(sum_tab)
-  #return(list(exp1, df, lvl=lvl))
 }   
 
 ###########################
 # COMBINE TABLES FUNCTION #
 ###########################
-# gr_order <- c("NonIners", "Iners", "Gard", "Prev", "Oth")
-# d_ <- sum_table.fun(metadata, val, ModifiedM4, gr_order)
-# a <- sum_table.fun(meta_all, val, Contraception, gr_order)
+
 sum_table.fun <- function(df, val, group, gr_order, stat_type ) {
   group <- enquo(group)
   
@@ -1075,11 +596,9 @@ sum_table.fun <- function(df, val, group, gr_order, stat_type ) {
   
   # count (n) in each group
   count <- table( pull(df, !!group) ) 
-  #count_t <- count %>% paste0("**",names(.),"**","\\\n","n=(", ., ")") %>% set_names(., names(count))  
   count_t <- count %>% 
   format(big.mark = ",") %>%
-    # markdown
-  #paste0("**", names(.), "**", "\\\n", "n=(", ., ")") %>%
+
     # html
   paste0("<b>", names(.), "</b>", "<br>", "(n=", ., ")") %>%
   set_names(., names(count))
@@ -1110,11 +629,11 @@ sum_table.fun <- function(df, val, group, gr_order, stat_type ) {
 
 ```
 
-::: {.content-hidden when-format="html"}
+
 # Function for creating vs-tables
 
 # -------------------------
-:::
+
 
 ```{r}
 
@@ -1160,9 +679,6 @@ by = join_by({{ group_var }}, Variable, Categories)) %>%
  
   
 
-  
-  
-  ## with if condition
   calculate_percentages <- function(df, vars, group_var = NULL) {
   # Check if group_var is provided and is a valid column name
   if (!is.null(group_var) && group_var %in% names(df)) {
@@ -1188,8 +704,6 @@ by = join_by({{ group_var }}, Variable, Categories)) %>%
   }
 }
 
- # calculate_percentages(df2, vars = c("AgeGroup", "Sex"), group_var = Period)
-  
   compare_percentages <- function(df1, df2, group_var, vars) {
     
   df1_percentages <- calculate_percentages(df1, vars, group_var)
@@ -1224,7 +738,6 @@ percent_diff =  percent.y -percent.x,
       # Calculate log of relative risk
       log_rr = log(relative_risk),
       # Calculate standard error of log relative risk
-
       se_log_rr = sqrt((1/n.x - 1/total_df1) + (1/n.y - 1/total_df2))
     )
 
@@ -1256,8 +769,6 @@ percent_diff =  percent.y -percent.x,
 # -Table 1. Lifestyle characteristics
 
 Table 1 is to describe the study population.
-These variables will not be used anywhere else in this manuscript.
-However it shows the percentage missing in the different variables.
 
 ```{r}
 
@@ -1266,7 +777,8 @@ However it shows the percentage missing in the different variables.
 val_use <- 
   colnames(
   df2 %>%
-    select(HeightCM, WeightKG, Age, Sex, BMI, BMI_cat, Astrand_MaxVO2, Astrand_rel_VO2, astr_cat,TobaccoSmokingDi, HealthDi, ExerciseDi, PhysicalWorkSituationDi, Sickness_absence_within_1_year_of_HPA))
+    select(HeightCM, WeightKG, Age, Sex, BMI, BMI_cat, Astrand_MaxVO2, Astrand_rel_VO2, astr_cat,TobaccoSmokingDi, HealthDi, ExerciseDi, PhysicalWorkSituationDi, Sickness_absence_within_1_year_of_HPA)
+  )
 to_char <- c("TobaccoSmoking", "BMI_cat", "astr_cat")
 
 t1 <- 
@@ -1317,27 +829,7 @@ t1 %>%
     TRUE ~ 999  # Other variables at the end
   )) %>%
   arrange(order) %>%
-  select(-order) #%>% 
-# slice(
-#     # Basic physical measurements
-#     1, 2,  # Height
-#     3, 4,  # Weight
-#     5, 6,  # BMI
-#     13, 14, 15, 16, # BMI categories
-# 
-#     # Lifestyle factors
-#     31, 32, 33, 34, 35, # Exercise frequency
-#     21, 22, 23, 24, 25, # Smoking
-#     36, 37, 38, 39, 40,  # Physical work situation
-# 
-#     # Health indicators
-#     7, 8,  # Estimated VO2max relative EB
-#     9, 10, # Estimated VO2max absolute Å
-#     11, 12,# Estimated VO2max relative Å
-#     17, 18, 19, 20, # VO2max categories (Åstrand)
-#     26, 27, 28, 29, 30 # General health
-# )
-
+  select(-order) 
 
 # Skapa en DataTable från den sammanfogade datan
    t1 %>% 
@@ -1374,7 +866,6 @@ datatable(
 # -Table 2. Sociodemographics
 
 Sociodemographic variables at the time of the HPI test are displayed as percentages across various groupings, serving both to characterize the study population and to lay the groundwork for subsequent analyses.
-These percentages will be further examined in comparison with SCB data in the upcoming figure and table.
 
 ```{r}
 to_char <- c("SSYK1_scb_hpi_combined")
@@ -1403,7 +894,7 @@ t2 <- df2 %>%
                 val = val_use,
                 group = Period,
                 stat_type = "mean_ci",
-                gr_order =  c("1995-1999", "2000-2004", "2005-2009", "2010-2014", "2015-2019", "2020-2021")) #unique(df2$Period))
+                gr_order =  c("1995-1999", "2000-2004", "2005-2009", "2010-2014", "2015-2019", "2020-2021")) #
 
 t2  <-
 t2 %>% 
@@ -1418,19 +909,8 @@ t2 %>%
     Variables == "IncomeLevel" ~ "Income  (% of median)",
     Variables == "Income_Sources_Category" ~ "Income Sources",
     Variables == "consecutive_years_category" ~ "Contractual temporariness",
-    TRUE ~ Variables # Keeps original values for rows not explicitly matched
-  )) #%>%
-  # slice(
-  #   1, 2, 3, # Sex
-  #   4, 5, 6, 7, 8, # Age group
-  #   9, 10, 11, 12, 13, # Nativity
-  #   14, 15, 16, 17, # Partner status
-  #   18, 19, 20, 21, 22, 23, # Education
-  #   24, 25, 26, 27, 28, # Municipality type
-  #   29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40 # SSYK1_scb_health
-  # )
-# df <- df %>%
-#   mutate(column_name = if_else(row_number() >= 20 & row_number() <= 23, 9, column_name))
+    TRUE ~ Variables
+  )) 
 
 
   t2 %>% 
@@ -1462,186 +942,6 @@ datatable(
 
 ```
 
-# -Figure 1. Sociodemographics - SCB vs HPI data
-
-Figure shows percentage point differences for year groups and total in different sociodemographic categories.
-THe figure is not in its final form, more of a concept image that will be improved.
-
-[**EJ RIKTIG DATA** väntar fortfarande på jämförelsedata från SCB. Exempeldata.]{style="color:red;"}
-R.
-
-```{r out.width="90%", fig.height=7}
-
-
-
-library(statebins)
-library(ggtext)
-library(patchwork)
-library(sysfonts)
-library(showtextdb)
-library(showtext)
-library(ggchicklet)
-# Load fonts --------------------------------------------------------------
-
-font_add_google("Ubuntu", "ubuntu")
-showtext_auto()
-
-bg_col <- "white"
-text_col <- "black"
-body_font <- "ubuntu"
-title_font <- "ubuntu"
-
-
-
-
-
-# Extract the colors from the 'lipari' palette
-# colors <- scico::scico(n = n_colors, palette = 'lipari')
-# n_colors <- 9
-# 
-# c("#364B9A", "#4A7BB7", "#6EA6CD", "#98CAE1", "#C2E4EF", "white", "#FEDA8B", "#FDB366", "#F67E4B", "#DD3D2D", "#A50026")
-# # Print the colors
-# colors
-# "#021326" "#1E4368" "#5C5D78" "#89606E" "#C2655F" "#EA8D6B" "#E6BC91" "#FDF4D9"
-#  "#021326" "#173D60" "#515A79" "#775E72" "#FDF4D9"  "#E6C398" "#E99973" "#D86E5D" "#A36267" 
-#  
-  plot_table <- 
-   compare_percentages(
-  df1 = df2 %>% filter(test_count == 1),
-  df2 = df2 %>% filter(test_count > 1),
-  group_var = "Period",
-  vars =colnames(df2 %>% select(
-    Sex, AgeGroup, BirthPlace, Civil_status, EducationLevel, KommunSize, IncomeLevel, SSYK_Category
-    )
-)
-)
-
-bins_plot <-
-  ggplot(plot_table %>% mutate(z=scale(percent_diff),
-                        abs = abs(percent_diff)),
-   aes(x = Period, y = Categories, fill = percent_diff)
-   ) +
-  statebins:::geom_rtile(
-    radius = unit(3, "pt"),
-  #  position = position_dodge(1),
-   height =.95, 
-   width = .95
-  ) +
-   geom_text(aes(label = round(percent_diff,1))) +
-  # scico::scale_fill_scico(palette = 'lipari') +
-  # 
-  # scale_fill_gradientn(colors = c(  "#ca9b1a", "#e3b44a", "#f5cc79", "#fae3ac", "#fdf1d6",
-  # "white",
-  # "#c4e2e1", "#88d4d2", "#4bc6c3", "#1ebbbf", "#189a91"),
-  # values = scales::rescale(c(-1, 0, 1))) +
-  
-    scale_fill_gradientn(colors = c( "#173D60", "#515A79" ,"#775E72", "#FDF4D9",  "#E6C398", "#E99973",  "#A36267") ,
-  values = scales::rescale(c(-1, 0, 1))) +
-  scale_x_discrete(labels = c("95-00", "00-05", "05-10", "10-15", "15-20", "20-23", "-23"),
-                   position = "top",
-                   guide = guide_axis(n.dodge = 2)) + 
-  #coord_fixed() +
-  ggforce::facet_col(~Variable, 
-                     scales = 'free_y', 
-                     space = 'free',
-                     strip.position = 'top')+
-  #facet_wrap(~group, ncol = 1, scales = "free_y") +
-  #theme_void(base_size = 32, base_family = "Oficial") +
-
-  theme(
-   # aspect.ratio = .2,
-    
-    legend.position = "bottom",
-    plot.background = element_rect(fill = bg_col, colour = bg_col),
-    panel.background = element_rect(fill = bg_col, colour = bg_col),
-    panel.grid.major = element_blank(), 
-    panel.grid.minor = element_blank(),
-    axis.title = element_blank(),
-    axis.text.y = element_text(colour = text_col,
-                               hjust = 1,
-                               margin = margin(r = 0),
-                               angle=0),
-    axis.text.x = element_text(colour = text_col,
-                               hjust = .5,
-                               margin = margin(r = 0),
-                               angle=0),
-    axis.line.x = element_line(),
-    axis.ticks.x = element_line(),
-    plot.title.position = "plot",
-    plot.caption.position = "plot",
-    strip.text = element_text(face = "bold", color = "grey10", 
-                              size = 10,
-                              hjust = 0,
-                              margin = margin(t = 0, r = 0, b = 0, l = 0)),
-    strip.background = element_rect(fill = "white", color = "white"),
-    plot.margin = margin(t=10, r=-0, b=10, l=0),
-    plot.title = element_textbox_simple(
-      colour = text_col,
-      hjust = 0.5,
-      halign = 0,
-      size = rel(1.8),
-      face = "bold",
-      margin = margin(b = 10, t = 10),
-      lineheight = 0.5#,
-      #family = body_font
-    )
-  )
-
-# marginal plot
-bar_plot_data <- 
-  plot_table %>% group_by(Variable, Categories) %>% 
-  summarise(Value=mean(percent_diff))
-
-bar_plot <- 
-  ggplot(bar_plot_data, 
-         aes(x = Categories, y = Value, fill = Value)) +
-
-  geom_col( position = position_dodge(width = 1),
-                # radius = grid::unit(3, "pt")
-            ) +
-  geom_hline(yintercept = 0, color = "grey") +
-  coord_flip() +
-  
-    scale_fill_gradientn(colors = c(  "#173D60", "#515A79" ,"#775E72", "#FDF4D9",  "#E6C398", "#E99973", "#A36267"), 
-                       values = scales::rescale(c(-1, 0, 1))) +
-   scale_y_continuous(position = "left",
-                    expand = waiver()) + 
-#  theme_void() +
-  labs(title = "Mean difference") +
-   ggforce::facet_col(~Variable, 
-                      scales = 'free_y', 
-                      space = 'free',
-                      strip.position = 'top') + 
- 
-    theme(
-    plot.margin = margin(t=10, r=-10, b=10, l=10),
-    panel.grid.major = element_blank(), 
-    panel.grid.minor = element_blank(),
-    #axis.ticks.x= element_line(linewidth = 3, color = "black"),
-    axis.ticks.y= element_blank(),
-    axis.line.x = element_line(),
-    axis.text.x = element_text(),
-    axis.title = element_blank(),
-    legend.position = "off",
-    plot.background = element_rect(fill = bg_col, colour = bg_col),
-    panel.background = element_rect(fill = bg_col, colour = bg_col),
-    axis.text.y = element_blank(),
-    plot.title.position = "plot",
-    plot.title = element_text(hjust = 0.5),
-    plot.caption.position = "plot",
-    strip.text = element_text(color = "transparent",
-                                margin = margin(t = 0, r = 0, b = 0, l = 0)),
-    strip.background = element_rect(fill = "white", color = "white")
-    )
-
-# Combine the two plots
-combined_plot <- bins_plot + bar_plot +
-  plot_layout(widths = c(4, 2)) 
-
-# Display the combined plot
-combined_plot
-
-```
 
 # -Table 3. Sociodemographics
 
@@ -1695,20 +995,9 @@ datatable(
 
 # Worklife characteristics
 
-This part is missing a lot of data as we are waiting for register data from statistics Sweden.
-However it is meant that it should follow same pattern as the presentation of socioeconomic data above.
-below we will present some possible aggregations of the long awaited SCB data.
-The categorization is up to discussion.
-
 # -Table 4. Worklife characteristics
 
 ```{r}
-
-
-
-
-
-df %>% count(InstitutionCategory)
 
 to_char <- c("SSYK1_scb_hpi_combined")
 
@@ -1747,10 +1036,7 @@ t3 %>%
     TRUE ~ Variables  
   ))
 
-
-
-
-# Skapa en DataTable från den sammanfogade datan
+# Create DataTable
 t3 %>% 
 mutate(Variables = ifelse(grepl("  -.+|^ $", .$Variables), 
       .$Variables, paste0("<b>",.$Variables,"</b>")) ) %>% 
@@ -1780,20 +1066,9 @@ datatable(
 
 ```
 
-# -Figure 2. Worklife characteristics - SCB vs HPI
-
-Percentage point differences for year groups and total\
-[**EJ RIKTIG DATA** väntar fortfarande på jämförelsedata från SCB. Exempeldata.]{style="color:red;"}
-
-```{r out.width="90%", fig.height=7}
-combined_plot
-```
-
 # -Table 5. Worklife characteristics
 
 Relative difference/risk between SCB and HPI data
-
-[Denna Väntar på jämförelsedata från SCB..]{style="color:red;"}
 
 ```{r}
  rel_diff_table <- 
@@ -1836,347 +1111,3 @@ datatable(
   class = "compact" # This class reduces padding/margin in the table
 )
 ```
-
-#-------------------------
-
-# -Figure 3, The Pinnacle
-
-Figure 3 will be the pinnacle of this manuscript.
-it will not only show over represented and underrepresented groups in HPI data compared to the whole working population of Sweden, but it will show groups within groups within groups.
-However the **HOW** is yet to be decided.
-The figure is also awaiting SCB data.
-
-First step is to choose variables to be used in the aggregation.
-A suggestion is to keep it simple with **occupation, sex, age and by ownership sector**, and keep the data more up to date - say 2017-2023.
-But it could also depend on the method used to find over and underrepresented groups.
-Other variables of interest could be **year period, education level, work sector, company size, geographic region, country of birth and operating profit**.
-
-One way is to choose the 20 most underrepresented and the 20 most overrepresented groups based on their deviation from the expected representation.
-This could be shown in a bar chart with groups on the x-axis and their deviation from expected representation on the y-axis.
-Another method involves using hierarchical clustering to find and present groups with similar representation patterns.
-A vizual example of this can be seen below.
-The dendrogram visualizes the hierarchical clustering of the groups based on their features.
-Each branch represents a cluster, and the height of the branches indicates the distance (or dissimilarity) between clusters.
-Observations (or groups) that are more similar to each other based on the features are clustered together and joined at lower points on the dendrogram.
-By selecting a specific level of dissimilarity from the dendrogram figure, we identify distinct clusters.
-These clusters can subsequently be illustrated graphically to visualize the grouping.
-Other suggestions are welcome here.
-
-## Hierarchical Clustering
-
-```{r out.width="90%", fig.height=7}
-
-# In this code:
-# 
-# - `group_by` and `summarise` are used to calculate the average `percent_diff` for each combination of `Variable` and `Categories`.
-# - `ungroup()` is called to prevent any issues with row names not aligning correctly.
-# - The `matrix_for_clustering` variable is a matrix version of your `percent_diff` values with row names set to the combined labels.
-# - The `hclust` and `ggdendrogram` functions are used to perform the hierarchical clustering and create the dendrogram plot.
-
- library(ggdendro)
- d <-
-plot_table %>% 
-   select(Period, Variable,Categories, percent_diff) %>% 
-   drop_na() %>% 
-   group_by(Variable, Categories) %>%  
-   summarise(percent_diff=mean(percent_diff)) %>% 
-mutate(Label = paste(Variable, Categories, round(percent_diff, digits = 2), sep = "_"))
-
-
-
-det<-  d
-  
-  
-d<-  as.matrix(d$percent_diff)
-rownames(d) <- det$Label
-  
-  
-hc <- hclust(dist(d), "ave")
-clust    <- cutree(hc,k=5)                    # find 5 clusters
-clust.df <- data.frame(label=names(clust), cluster=factor(clust))
-hcdata <- dendro_data(hc, type = "rectangle") 
-
-ggdendrogram(hc, rotate = TRUE, size = 2) +
- # geom_col(data = det,aes(Label,percent_diff))+
-  geom_segment(data = segment(hcdata), 
-              aes(x = x, y = y, xend = xend, yend = yend)) #+
- # scale_y_reverse()#+
-  # geom_text(data = label(hcdata), 
-  #           aes(x = x, y = y, label = label, hjust = 0), 
-  #           size = 3)
-
-
-
-
-```
-
-::: {.content-hidden when-format="html"}
-#------------------------- \# 1st vs 2ond test percentage point difference and relative risk
-
-## -Table 6. Difference between those with one test vs those with 2 or more tests at their first test.
-
-```{r}
- result_table <- 
-   compare_percentages(
-  df1 = df2 %>% filter(test_count == 1),
-  df2 = df2 %>% filter(test_count > 1),
-  group_var = NULL,
-  vars =colnames(df2 %>% select(
-    Sex, AgeGroup, BirthPlace, Civil_status, EducationLevel, KommunSize, IncomeLevel, SNI
-    )
-)
-)
-
-
- result_table %>% select(Variable, Categories, n_and_percent_df1, n_and_percent_df2, p_diff, rr_with_ci) %>% 
-   mutate(across(where(is.numeric), round,1)) %>% 
-datatable(
-  escape = FALSE,  # to render HTML
-  extensions = 'Buttons',
-  options = list(
-    scrollX = TRUE,
-     pageLength = 62,
-    lengthMenu = list(c(5, 10, 30, 50, -1), c('5', '10', '30', '50', 'All')),
-    dom = 'Bfrtip',
-    buttons = c('copy', 'csv', 'excel'),
-    title = "Sammanställd Frekvens av ICD-koder",
-      columnDefs = list(
-      list(className = 'dt-body-right', targets = 3:6) # Target columns 2 to 7 -rightalign
-    ),
-    initComplete = JS(
-      "function(settings, json) {",
-      "$(this.api().table().header()).css({'font-size': '10px'});",
-      "$(this.api().table().body()).css({'font-size': '10px'});",
-      "}"
-    )
-  ),
-  class = "compact" # This class reduces padding/margin in the table
-)
-
- 
- 
-
-   
-```
-
-```{r}
-
-
-
-
- result_table2 <- 
-   compare_percentages(
-  df1 = df2 %>% filter(test_count == 1)%>% 
-  mutate(across(where(is.double), as.character)),
-  df2 = df2 %>% filter(test_count > 1)%>% 
-  mutate(across(where(is.double), as.character)),
-  group_var = NULL,
-vars = colnames(df2 %>% 
-   select(BMI_cat, astr_cat,TobaccoSmoking, Health, ExerciseAnswer, PhysicalWorkSituation) %>% 
-  mutate(across(where(is.double), as.character)))
-)
-
-result_table2%>% select(Variable, Categories, n_and_percent_df1, n_and_percent_df2, p_diff, rr_with_ci) %>% 
-   mutate(across(where(is.numeric), round,1)) %>% 
-datatable(
-  escape = FALSE,  # to render HTML
-  extensions = 'Buttons',
-  options = list(
-    scrollX = TRUE,
-     pageLength = 62,
-    lengthMenu = list(c(5, 10, 30, 50, -1), c('5', '10', '30', '50', 'All')),
-    dom = 'Bfrtip',
-    buttons = c('copy', 'csv', 'excel'),
-    title = "Sammanställd Frekvens av ICD-koder",
-      columnDefs = list(
-      list(className = 'dt-body-right', targets = 3:6) # Target columns 2 to 7 -rightalign
-    ),
-    initComplete = JS(
-      "function(settings, json) {",
-      "$(this.api().table().header()).css({'font-size': '10px'});",
-      "$(this.api().table().body()).css({'font-size': '10px'});",
-      "}"
-    )
-  ),
-  class = "compact" # This class reduces padding/margin in the table
-)
-
-```
-
-KAN även visas i graf form, men kanske räcker med en tabell för detta.
-
-```{r out.width="100%", fig.height=7.5}
-result_table %>% 
-     ggplot(aes(x=percent_diff, y = Categories)) +
-     geom_ribbon(aes(ymin = -Inf, ymax = Inf, xmin = -5, xmax = 5), fill = "pink", alpha = 1) +
-     geom_vline(xintercept = 0, color = "grey") +
-     geom_col(fill="lightblue") +
-     xlim(c(-15,15))+
-     geom_text(aes(x=12,label = n_df2), hjust=1) +
-     geom_text(aes(x=-10,label = n_df1), hjust=1) +
-     facet_wrap(~ Variable, scales = "free_y", ncol = 1) +
-     labs(title = "those with one test vs those with two tests, those with only one test have higer % women") +
-     theme_minimal() +
-     theme(legend.position = "bottom")
-```
-
-#-------------------------
-
-# other stuff not included in paper
-
-## Income graph
-
-```{r}
-
-df1 %>%
-  mutate(Period = case_when(
-    Year >= 1995 & Year < 2000 ~ "1995-1999",
-    Year >= 2000 & Year < 2005 ~ "2000-2004",
-    Year >= 2005 & Year < 2010 ~ "2005-2009",
-    Year >= 2010 & Year < 2015 ~ "2010-2014",
-    Year >= 2015 & Year < 2020 ~ "2015-2019",
-    Year >= 2020 & Year <= 2023 ~ "2020-2023",
-    TRUE ~ NA_character_  # For years outside the specified range
-  )) %>%
-  ggplot(aes(x = Period, y = CSFVI)) + 
-  geom_violin() +
-  geom_boxplot(width = 0.2, 
-                 outlier.color = "red",
-  outlier.fill = "red",
-  outlier.shape = 19,
-  outlier.size = .3,
-  outlier.stroke = 0.5,
-  outlier.alpha = .8,
-  position = position_dodge() )+  # Still hide outliers in boxplot for clarity
-  #geom_jitter(color = "red", size = 1, width = 0.1, height = 0, aes(group = Period)) +  # Add jitter for outliers
-  scale_y_log10(labels = scales::label_number(), breaks = scales::log_breaks(n = 20)) +  # More breaks on the y-axis
-  theme_minimal() +
-  labs(y = "CSFVI (log scale)", x = "Period")
-
-```
-
-Andra variabler:\
-LoneInk??,
-ArsLonFInk???
-
-**Possible additional variables**:\
-Contractual relationship insecurity.\
-Directly employed by the employer (0).\
-Employed by an agency (-1) Combination of self- and direct employment (-1).
-Self-employed (-1).\
-Solo self-employed (-2).\
-Contractual temporariness Stable employment (0) Unstable employment (-2).\
-Multiple jobs/economic sectors.\
-CBA coverage (% likelihood).\
-https://isf.se/publikationer/rapporter/2018/2018-09-04-vem-far-avsattningar-till-tjanstepension
-
-Job insecurity Temporary employment
-
-Antal förvärvsarbetande på arbetsstället
-
-Institutionell sektorkod (företag) InstKod6
-
-https://www.sjweh.fi/show_abstract.php?a
-bstract_id=3928&fullText=1#box-fullText
-
-1.  1
-
-2.  2-5
-
-3.  6-10
-
-4.  11-50
-
-5.  51-100
-
-6.  
-
-    > =101
-
-   Primary Sector: • Agriculture, Forestry and Fishing Industrial and Manufacturing: • Mining and Quarrying; Manufacturing • Electricity, Gas, Steam and Air Conditioning Supply; Water Supply; Sewerage, Waste Management and Remediation Activities • Construction Commercial Services: • Wholesale and Retail Trade • Transportation and Storage • Accommodation and Food Service Activities • Real Estate Activities • Information and Communication • Financial and Insurance Activities Public and Personal Services: • Public Administration and Defence • Education • Human Health and Social Work Activities • Arts, Entertainment and Recreation; Other Service Activities • Professional, Scientific and Technical Activities; Administrative and Support Service Activities
-
--   Uppgift saknas 1 Förgymnasial utbildning kortare än 9 år 2 Förgymnasial utbildning 9 år 3 Gymnasial utbildning högst 2-årig 4 Gymnasial utbildning 3 år 5 Eftergymnasial utbildning kortare än 3 år 6 Eftergymnasial utbildning 3 år eller längre (exkl. forskarutbildning) 7 Forskarutbildning
-
-High-Skilled Group:\
-Managers and Administrators Professionals (e.g., healthcare, education, IT) Technicians and Associate Professionals This group encompasses roles that typically require advanced education, specialized skills, and a high level of expertise.
-
-Skilled Manual (Blue Collar) Group:\
-Skilled Agricultural, Forestry, and Fishery Workers Craft and Related Trades Workers Plant and Machine Operators, and Assemblers Jobs in this group generally require specific vocational skills or training, often involving manual labor or technical expertise.
-
-Clerical and Service Workers Group (Clerical Support Workers,\
-Service and Sales Workers):\
-This group covers roles primarily in the service sector, including both office-based clerical jobs and customer-facing service roles.
-These occupations may require certain levels of training and skills, but not to the extent of the high-skilled group.
-
-Elementary Occupations:\
-This group includes occupations that usually perform simple and routine tasks, which may require the use of hand-held tools and physical effort.
-These roles often do not require formal educational credentials or specialized training.
-
-Ownership sector (SNI) 1.
-Private 2.
-Public
-
-Economic sector (SNI)\
- 1.
-Electricity, Gas, Steam and Air Conditioning Supply; Water Supply; Sewerage, Waste Management and Remediation Activities\
- 2.
-Agriculture, Forestry and Fishing  3.
-Mining and Quarrying; Manufacturing  4.
-Construction\
- 5.
-Wholesale and Retail Trade  6.
-Transportation and Storage\
- 7.
-Accommodation and Food Service Activities\
- 8.
-Information and Communication\
- 9.
-Financial and Insurance Activities\
- 10.
-Real Estate Activities  11.
-Professional, Scientific and Technical Activities; Administrative and Support Service Activities\
- 12.
-Public Administration and Defence  13.
-Education\
- 14.
-Human Health and Social Work Activities\
- 15.
-Arts, Entertainment and Recreation; Other service activities  
-
-  Number of employees in the company (public/private???) (Ast_AntalSys) European Union Definitions: • Micro-Enterprises: 1-9 employees • Small Enterprises: 10-49 employees • Medium-Sized Enterprises: 50-249 employees • Large Enterprises: 250+ employees
-
-Multiple jobs/ economic sectors (AntAns, SNI) 1.
-≥2 jobs in \>1 sector 2.
-≥2 jobs\
-3.
-1 job
-
-Staff Turnover Rate (%) (PersOms_Harledd / Ast_AntalSys) 1.
-(number of separations during the period / Average number of employees under the period) x 100
-
-Contractual relationship insecurity (vi kanske inte har denna data?) 1.
-Solo self-employed\
-2.
-Self- and direct employment / Self-employed / Agency employed\
-3.
-Directly employed
-
-Contractual temporariness 1.
-Stable employment, Having the same employer for 3 years 2.
-Unstable employment, Having the same employer for \<3 years
-
-Net sales % av median?
-(Ftg_Nettoomsattning) ≥200% 120–199% 80–119% 60–79 \<60%
-
-Operating Profit (Ftg_Rorelseresultat) ≥200% 120–199% 80–119% 60–79 \<60%
-
-Operating Margin (Ftg_Nettoomsattning, Ftg_Rorelseresultat) 1.
-(operating profit/revenue)x100
-
-Collective bargaining agreement coverage (% likelihood) (kanske tas bort men möjligt att räkna på) 1.
-≤70\
-2.
-71–90\
-3.
-91–100
-:::
