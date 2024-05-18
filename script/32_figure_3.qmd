@@ -1,0 +1,1254 @@
+---
+title: "32_figure_3_and_4"
+format: html
+---
+
+# Libraries
+
+```{r}
+library(tidyverse)
+library(here)
+library(scales)
+library(patchwork)
+library(showtext)
+
+font_add_google("Ubuntu", "ubuntu")
+font_add_google("Roboto", "roboto")
+showtext_auto()
+
+```
+
+# Read combined
+```{r}
+combined <- bind_rows(
+  read_csv(here::here("..", "..", "..", "HPI (DNR XXXXXX)", "Data HPI registeruttag 2023", "SCB", "Leverans", "Leverans_20240306", "without_hpi_lopnr", "7.fig3data", "fig3data_without.csv")) %>% mutate(dataset="Population"),
+  read_csv(here::here("..", "..", "..", "HPI (DNR XXXXXX)", "Data HPI registeruttag 2023", "SCB", "Leverans", "Leverans_20240306", "with_hpi_lopnr", "7.fig3data", "fig3data_with.csv")) %>% mutate(dataset="HPA") 
+) 
+
+combined_private <-
+combined %>% 
+  mutate(dataset = as.factor(dataset)) %>%
+  dplyr::select(Sex, AgeGroup, Ownership_sector, SSYK, dataset
+                ) %>% drop_na()  %>% 
+  filter(AgeGroup != ">65") %>% 
+  mutate(Ownership_sector=if_else(Ownership_sector=="Private", "Private", "Public"),
+        # Number_of_employees_Category = if_else(Number_of_employees_Category == "≥250" | Number_of_employees_Category == "50 to 249", "≥50", Number_of_employees_Category)
+        ) %>%
+  mutate(Sex = if_else(Sex==1,"Men", "Women"))  %>% 
+  filter(Ownership_sector == "Private")
+
+combined_public <-
+combined %>% 
+  mutate(dataset = as.factor(dataset)) %>%
+  dplyr::select(Sex, AgeGroup, Ownership_sector, SSYK, Number_of_employees_Category, dataset
+                ) %>% drop_na()  %>% 
+  filter(AgeGroup != ">65") %>% 
+  mutate(Ownership_sector=if_else(Ownership_sector=="Private", "Private", "Public"),
+         Number_of_employees_Category = if_else(Number_of_employees_Category == "≥250" | Number_of_employees_Category == "50 to 249", "≥50", Number_of_employees_Category)) %>%
+  mutate(Sex = if_else(Sex==1,"Men", "Women"))  %>% 
+  filter(Ownership_sector == "Public")
+
+
+
+combined %>% filter(dataset=="HPA") %>%  count(SSYK) %>% mutate(sum=sum(n), n/sum*100)
+
+```
+
+# Function for data creation
+```{r}
+
+kmeans_data_trans <- function(data, seed, name) {
+prop <- data %>% 
+    group_by(Sex, AgeGroup, SSYK, dataset
+           #Number_of_employees_Category, Turnover_Rate_Category, KommunSize, dataset
+           ) %>%
+  # summarize into agregated groups of every possible combination available
+  summarise(Count = n(), .groups = 'drop') %>% 
+  pivot_wider(names_from = dataset, values_from = Count, values_fill = list(Count = 0)) %>%
+  mutate(Total_Population = `Population`, 
+         Total_HPA = `HPA`,
+         Proportion_Population = Total_Population / sum(Total_Population),
+         Proportion_HPA = Total_HPA / sum(Total_HPA),
+         Difference = Proportion_HPA - Proportion_Population,
+             Difference_Norm = (Difference - mean(Difference)) / sd(Difference)  # Normalize 
+) 
+
+set.seed(seed)
+clusters <- kmeans(prop[, c("Difference_Norm")], centers = 3)
+prop$Cluster <- clusters$cluster
+
+plotkmeans <- ggplot(prop, aes(x = reorder(Cluster, Difference_Norm), y = Difference_Norm, fill = as.factor(Cluster))) +
+  geom_boxplot() +
+  geom_violin() +
+  #geom_text(data = label_data, aes(x = Cluster, y =  MeanDifference+0.001, label = Label), vjust = -1.5) +
+  scale_fill_manual(values = c("#66A5AD", "white", "#FFA07A")) +
+  labs(title = "Less individuals in comparison to Population data are the Underrepresented group\nMore individuals in comparison to Population data are the overrepresented group",
+       x = "Cluster", y = "Difference in Proportions") +
+  theme_minimal()
+
+print(plotkmeans)
+
+
+assign(paste("prop_", name, sep = ""), prop, envir = .GlobalEnv)
+
+
+# Calculate WSS
+wss <- clusters$withinss
+
+# Calculate TSS (total sum of squares)
+tss <- sum((prop$Difference_Norm - mean(prop$Difference_Norm))^2)
+
+# Calculate BSS (between sum of squares)
+bss <- tss - sum(wss)
+
+# Calculate BSS / TSS ratio
+bss_tss_ratio <- bss / tss
+
+# Print cluster metrics
+cat("Within cluster sum of squares by cluster:\n", wss, "\n")
+cat("(between_sum_of_squares / total_sum_of_squares = ", round(bss_tss_ratio * 100, 1), "%)\n")
+# Mode and count in groups
+Mode <- function(x) {
+  ux <- unique(x)
+  ux[which.max(tabulate(match(x, ux)))]
+}
+
+prop_summary  <<- prop %>%
+  group_by(Cluster) %>%
+  summarise(
+    Most_Common_Sex = Mode(Sex),
+    Most_Common_AgeGroup = Mode(AgeGroup),
+    Most_Common_Occupation = Mode(SSYK),
+    Count = n(),
+    countHPI = sum(HPA),
+    CountPopulation = sum(Population),
+    cluster_mean = mean(Difference_Norm),
+    .groups = 'drop'
+  ) %>%
+  arrange(Cluster)
+
+
+print(prop_summary)
+
+
+
+proportions_long <- 
+  prop %>%
+ mutate(across(c(
+   Sex, AgeGroup, SSYK
+   ), 
+   as.character)) %>%
+  pivot_longer(
+    cols = c(
+      Sex, AgeGroup, SSYK
+      ),
+    names_to = "Category",
+    values_to = "Value"
+  )
+
+proportion_results <- proportions_long %>%
+ # mutate(Category=str_c(Category, names_sep=".", Value)) %>% 
+ group_by(Cluster, Category, Value) %>%
+  summarise(CountHPA = sum(Total_HPA),  # HPI data
+            CountPopulation = sum(Population), # popultaion data
+            CountPooled = sum(Total_HPA) + sum(Population),
+            CountGroup = n(), .groups = 'drop') %>%
+ # separate_wider_delim(Category, delim = ".", names = c("Category", "xx")) %>% 
+   group_by(Cluster, Category) %>%
+  mutate(TotalHPA_per_cluster = sum(CountHPA, na.rm = TRUE)) %>% 
+  ungroup() %>% 
+  mutate(
+         Proportion = CountHPA / TotalHPA_per_cluster * 100
+         )
+
+
+# Ratios
+proportion_results %>%
+  select(Category, Value, Proportion, Cluster) %>%
+  pivot_wider(names_from = Cluster, values_from = Proportion, names_prefix = "Cluster_") %>%
+  mutate(
+    # Handling NA by replacing with zero can bias the analysis, consider if_else to avoid division by zero
+   # Cluster_2 = if_else(is.na(Cluster_2), 0.01, Cluster_2),  # Replacing NA with a small number to avoid division by zero
+   # Cluster_3 = if_else(is.na(Cluster_3), 0.01, Cluster_3),
+    
+    # Calculate Ratios
+ Underrepresented = Cluster_1,  # Previously Cluster_1
+    Represented = Cluster_2,        # Previously Cluster_2
+    Overrepresented = Cluster_3,    # Previously Cluster_3
+    
+    # Calculate Ratios
+    Ratio_UnderRep = Underrepresented  / Represented,
+    Ratio_OverRep = Overrepresented / Represented,
+    
+    # Calculate Differences of Proportions
+    Difference_Rep_Under = Underrepresented  - Represented,
+    Difference_Over_Rep = Overrepresented - Represented
+  ) %>%
+  select(Category, Value, Underrepresented, Represented, Overrepresented,
+         Ratio_UnderRep, Ratio_OverRep, Difference_Rep_Under, Difference_Over_Rep)
+
+}
+
+
+priv <- kmeans_data_trans(combined_private, 11, "private")
+pub <- kmeans_data_trans(combined_public, 4, "public")
+
+
+
+
+```
+
+# Suplementary table
+```{r}
+prop_private <- prop_private %>% select(Cluster, Sex, AgeGroup, SSYK, HPA, Population, Proportion_Population, Proportion_HPA, Difference, Difference_Norm) %>% arrange(Difference_Norm)
+write_csv(prop_private, "prop_private.csv")
+prop_public <- prop_public %>% select(Cluster, Sex, AgeGroup, SSYK, HPA, Population, Proportion_Population, Proportion_HPA, Difference, Difference_Norm) %>% arrange(Difference_Norm)
+write_csv(prop_public, "prop_public.csv")
+```
+
+
+# Function for plot
+```{r}
+plot_data %>% filter(Category == "SSYK", cat =="Represented") %>% mutate(sum(Percentage)) %>%  print(n=100)
+
+
+pub %>% 
+    pivot_longer(cols = group_cols[[group]],
+                 names_to = "cat",
+                 values_to = "Percentage") %>%
+    mutate(Percentage = ifelse(Percentage <= 0, NA_real_, Percentage)) %>%
+    mutate(point_size = ifelse(cat == group, 4, 2)) %>% 
+    mutate(Percentage = if_else(is.na(Percentage), 0, Percentage)) %>% 
+     mutate(
+       Category = recode(Category, "AgeGroup" = "Age group", "SSYK" = "Occupation"),
+       Category = factor(Category, levels = c("Sex", "Age group", "Occupation")),
+      # Category = fct_rev(Category),
+   Value = factor(Value, levels = order),
+   Value = fct_rev(Value)
+   )
+
+plot_groups <- function(data, group) {
+  group_cols <- list(
+    "Underrepresented" = c("Underrepresented", "Represented"),
+    "Overrepresented" = c("Overrepresented", "Represented")
+  )
+  
+  if (!group %in% names(group_cols)) {
+    stop("Invalid group. Choose 'Underrepresented' or 'Overrepresented'.")
+  }
+  
+order <- c("Men", "Women", "18-35", "36-50", "51-65",
+  "Military", "Managers", "Science and engineering", "Health care", 
+  "Education", "Other professionals", "Associate professionals", 
+  "Administration and customer service", "Personal care", 
+  "Service and shop sales", "Agriculture and forestry", "Building", 
+  "Manufacturing", "Transport", "Mechanical manufacturing", 
+  "Cleaners", "Other elementary occupations"
+)
+  
+  plot_data <- data %>%
+    pivot_longer(cols = group_cols[[group]],
+                 names_to = "cat",
+                 values_to = "Percentage") %>%
+    mutate(Percentage = ifelse(Percentage <= 0, NA_real_, Percentage)) %>%
+    mutate(point_size = ifelse(cat == group, 4, 2)) %>% 
+    mutate(Percentage = if_else(is.na(Percentage), 0, Percentage)) %>% 
+     mutate(
+       Category = recode(Category, "AgeGroup" = "Age group", "SSYK" = "Occupation"),
+       Category = factor(Category, levels = c("Sex", "Age group", "Occupation")),
+      # Category = fct_rev(Category),
+   Value = factor(Value, levels = order),
+   Value = fct_rev(Value)
+   )
+  
+  represented_data <- plot_data %>%
+    filter(cat == "Represented") %>%
+    group_by(Value, Category) %>%
+    summarise(represented_Percentage = max(Percentage, na.rm = TRUE), .groups = 'drop')
+
+  plot_data <- plot_data %>%
+    left_join(represented_data, by = c("Value", "Category")) %>%
+    mutate(fill_color = case_when(
+      cat == "Underrepresented" & Percentage > represented_Percentage ~ "#66A5AD",
+      cat == "Overrepresented" & Percentage > represented_Percentage ~ "#FFA07A",
+      TRUE ~ "white"),
+      segment_color = case_when(
+      cat == "Underrepresented" ~ "#66A5AD",
+      TRUE ~ "grey"  
+    ))
+  
+  range_data <- plot_data %>%
+    filter(cat %in% group_cols[[group]]) %>%
+    group_by(Value, Category) %>%
+    summarise(min_Percentage = min(Percentage, na.rm = TRUE),
+              max_Percentage = max(Percentage, na.rm = TRUE),
+              diff = max_Percentage - min_Percentage,
+              min_cat = cat[which.min(Percentage)],
+              max_cat = cat[which.max(Percentage)],
+              .groups = 'drop') %>%
+    mutate(line_color = ifelse(min_cat == "Underrepresented" & max_cat == "Represented", "#FFA07A", "#66A5AD"))
+  
+  plot_data %>%
+    ggplot(aes(Percentage, Value, color = cat, group = cat)) +
+    geom_segment(
+      data = range_data,
+      aes(x = min_Percentage, xend = max_Percentage, 
+          y = Value, yend = Value, color = max_cat,
+          alpha = if_else(max_cat == group , 1, 0.6), 
+          ),
+      linetype = "solid",
+      linewidth = 1, inherit.aes = FALSE) +
+    geom_point(aes(size = point_size,
+                   shape = if_else(cat == "Represented", 19, 21),
+                   fill = fill_color), 
+               alpha = 1) +
+    scale_color_manual(values = c("Underrepresented" = "#66A5AD", "Overrepresented" = "#FFA07A", "Represented" = "grey")) +
+    scale_size_identity() +
+    scale_alpha_identity() +
+    scale_shape_identity() +
+    scale_fill_identity() +
+    scale_x_continuous(limits = c(0, 90), expand = c(.03,0), labels = label_percent(accuracy = 1, scale = 1)) + 
+    ggforce::facet_col(~ Category,
+                       scales = 'free_y',
+                       space = 'free',
+                       strip.position = 'top') +
+    labs(
+     #paste("", group),
+      x = "Percentage",
+      y = "",
+      color = ""
+    ) +
+    theme_minimal() +
+    theme(
+      legend.position = "none",
+      axis.title.x = element_blank(),
+      axis.title.y = element_text(size = 12, face = "bold"),
+      axis.text.y = element_blank(),
+      strip.text = element_text(face = "bold", color = "white", 
+                                size = 10,
+                                hjust = 0),
+      strip.background = element_rect(fill = "white", color = "white"),
+      panel.grid = element_blank(),
+      panel.grid.major.y = element_line(color = "grey91"),
+      panel.grid.major.x = element_line(color = "grey91"),
+      plot.margin = unit(c(0,0,0,0), "cm")
+    )
+}
+
+ plot_groups(pub, "Underrepresented")
+
+plot_empty_y_axis <- function(data, group) {
+  group_cols <- list(
+    "Underrepresented" = c("Underrepresented", "Represented"),
+    "Overrepresented" = c("Overrepresented", "Represented")
+  )
+
+  if (!group %in% names(group_cols)) {
+    stop("Invalid group. Choose 'Underrepresented' or 'Overrepresented'.")
+  }
+  
+  order <- c("Men", "Women", "18-35", "36-50", "51-65",
+             "Military", "Managers", "Science and engineering", "Health care", 
+             "Education", "Other professionals", "Associate professionals", 
+             "Administration and customer service", "Personal care", 
+             "Service and shop sales", "Agriculture and forestry", "Building", 
+             "Manufacturing", "Transport", "Mechanical manufacturing", 
+             "Cleaners", "Other elementary occupations"
+  )
+
+  plot_data <- data %>%
+    pivot_longer(cols = group_cols[[group]],
+                 names_to = "cat",
+                 values_to = "Percentage") %>%
+    mutate(Percentage = ifelse(Percentage <= 0, NA_real_, Percentage)) %>%
+    mutate(
+      Category = recode(Category, "AgeGroup" = "Age group", "SSYK" = "Occupation"),
+      Category = factor(Category, levels = c("Sex", "Age group", "Occupation")),
+      Value = factor(Value, levels = order),
+    Value = fct_rev(Value)
+    ) %>%
+    distinct(Category, Value, .keep_all = TRUE) # Keep only unique rows based on 'Category' and 'Value'
+
+  # Create the empty plot with y-axis labels
+  ggplot(plot_data, aes(x = 1, y = Value)) +
+    geom_label(aes(label = Value),
+               family = "Roboto",
+               label.size = NA, hjust = 1, color = "grey10", fill = "white") +
+    ggforce::facet_col(~ Category,
+                       scales = 'free_y',
+                       space = 'free',
+                       strip.position = 'top') +
+    scale_x_continuous(limits = c(-1, 1)) +
+    labs(
+      x = "",
+      y = ""
+    ) +
+    theme_minimal() +
+    theme(
+      legend.position = "none",
+      axis.title.x = element_text(size = 12, face = "bold"),
+      axis.title.y = element_text(size = 12, face = "bold"),
+      axis.text = element_blank(),
+      strip.text = element_text(face = "bold", color = "grey10", 
+                                size = 10,
+                                hjust = 1),
+      strip.background = element_rect(fill = "white", color = "white"),
+      panel.grid = element_blank(),
+      plot.margin = unit(c(0,0,0,0), "cm")
+    )
+}
+
+
+plot_empty_y_axis(pub, "Underrepresented")
+
+# public
+public_row <- (
+  plot_empty_y_axis(pub, "Underrepresented")+
+    
+  plot_groups(pub, "Underrepresented")+ 
+                 
+  theme(
+      legend.position = "none",
+      axis.title.x = element_blank(),
+      axis.title.y = element_blank(),
+      axis.text.y = element_blank() )+ 
+                 
+  plot_groups(pub, "Overrepresented")+ 
+          
+  theme(
+      legend.position = "none",
+      axis.title.x = element_blank(),
+      axis.title.y = element_blank(),
+      axis.text.y = element_blank() ) ) 
+
+
+# +
+  plot_annotation(title = "Public") + 
+  plot_layout(widths = c(1, 1 ,1), guides = "collect") & 
+  theme(legend.position = "top", plot.margin = unit(c(0,0,0,0), "cm"),
+                               text = element_text('Roboto') 
+  )
+
+# private
+private_row <- (
+     plot_empty_y_axis(pub, "Underrepresented") +
+       
+       plot_groups(priv, "Underrepresented") + 
+                  scale_x_continuous(position = "top", limits = c(0, 90), expand = c(.03,0), labels = label_percent(accuracy = 1, scale = 1)) +
+                  theme(
+      legend.position = "none",
+      axis.title.x = element_blank(),
+      axis.title.y = element_blank(),
+      axis.text.y = element_blank() ) +
+     
+plot_groups(priv, "Overrepresented") + 
+  scale_x_continuous(position = "top", limits = c(0, 90), expand = c(.03,0), labels = label_percent(accuracy = 1, scale = 1)) + 
+  theme(
+      legend.position = "none",
+      axis.title.x = element_blank(),
+      axis.title.y = element_blank(),
+      axis.text.y = element_blank() ))   #  + 
+  plot_annotation(title = "Private")+ plot_layout(widths = c(1, 1 ,1), guides = "collect") 
+
+
+p <-  wrap_elements(panel = private_row) / wrap_elements(panel = public_row) + 
+  plot_layout(ncol = 1, guides = "collect") & 
+  theme(legend.position = "top", plot.margin = unit(c(0, 0, 0, 0), "cm"), text = element_text(family = 'Roboto'))
+p
+
+
+
+
+ggsave("Figure3.pdf", plot = p, width = 9, height = 11, device = 'pdf', dpi = 600)
+ggsave("Figure3.png", plot = p, width = 9, height = 11, device = 'png', dpi = 600)
+
+
+
+
+
+public_row <- (plot_empty_y_axis(pub, "Underrepresented") +
+  plot_groups(pub, "Underrepresented") +
+  
+  plot_groups(pub, "Overrepresented")
+) + plot_layout(widths = c(1, 0.7, 1)) + 
+  plot_annotation(title = "Public", theme = theme(plot.title = element_text(size = 16, hjust = 0.5)))
+
+# Create the Private plot row
+private_row <- (plot_empty_y_axis(priv, "Underrepresented") +
+  plot_groups(priv, "Underrepresented") +
+  
+  plot_groups(priv, "Overrepresented")
+) + plot_layout(widths = c(1, 0.7, 1)) + 
+  plot_annotation(title = "Private", theme = theme(plot.title = element_text(size = 16, hjust = 0.5)))
+
+# Combine the Public and Private rows
+combined_plot <- public_row / private_row
+
+# Adjust overall theme and legend position
+combined_plot & theme(legend.position = "top", plot.margin = unit(c(0, 0, 0, 0), "cm"), text = element_text(family = 'Roboto'))
+```
+# save plot
+
+
+
+#  legend
+
+
+```{r}
+legend_items <- data.frame(
+    x = c(1, 1, 1, 1.5, 1.5, 1.5),
+    xend = c(1.5, 1.5, 1.5, NA, NA, NA),
+    y = c(3, 2, 1, 3, 2, 1),
+    label = c("Positive Difference: Overrepresented", "Positive Difference: Underrepresented", "Negative Difference: Represented", "Overrepresented %", "Underrepresented %", "Represented %"),
+    type = c("segment", "segment", "segment", "point", "point", "point"),
+    color = c("#FFA07A", "#66A5AD", "grey", "#FFA07A", "#66A5AD", "grey"),
+    linetype = c("solid", "solid", "dotted", NA, NA, NA),
+    shape = c(NA, NA, NA, 15, 16, 17)
+)
+
+# Create the custom legend plot
+legend_plot <- ggplot(legend_items) +
+    geom_segment(data = subset(legend_items, type == "segment"), aes(x = x, xend = xend, y = y, yend = y, color = color, linetype = linetype), size = 1) +
+    geom_point(data = subset(legend_items, type == "point"), aes(x = x + 0.5, y = y, color = color, shape = shape), size = 4) +
+    geom_text(aes(x = x + 0.5, y = y, label = label), hjust = 0, vjust = 0, size = 5) +
+    scale_color_identity() +
+    scale_linetype_identity() +
+    scale_shape_identity() +
+    theme_void() +
+    theme(legend.position = "none")
+
+# Print the legend plot
+print(legend_plot)
+```
+
+# Public
+```{r}
+proportions_public <- combined_public %>% 
+    group_by(Sex, AgeGroup, SSYK, dataset
+           #Number_of_employees_Category, Turnover_Rate_Category, KommunSize, dataset
+           ) %>%
+  # summarize into agregated groups of every possible combination available
+  summarise(Count = n(), .groups = 'drop') %>% 
+  pivot_wider(names_from = dataset, values_from = Count, values_fill = list(Count = 0)) %>%
+  mutate(Total_Population = `Population`, 
+         Total_HPA = `HPA`,
+         Proportion_Population = Total_Population / sum(Total_Population),
+         Proportion_HPA = Total_HPA / sum(Total_HPA),
+         Difference = Proportion_HPA - Proportion_Population,
+             Difference_Norm = (Difference - mean(Difference)) / sd(Difference)  # Normalize 
+) 
+
+
+library(tidyclust)
+set.seed(100)
+
+kmeans_spec_fit<-
+k_means(num_clusters = 3) %>%
+  set_engine("stats") %>%
+  fit(~Difference_Norm, data = proportions_public) 
+
+a<-kmeans_spec_fit %>%
+  augment(proportions_public)
+
+
+
+extract_centroids(kmeans_spec_fit)
+
+
+# K-means clustering by difference in proportions in different groups for over and underreached groups
+set.seed(8)
+clusters <- kmeans(proportions_public[, c("Difference_Norm")], centers = 3)
+proportions_public$Cluster <- clusters$cluster
+
+ggplot(proportions_public, aes(x = reorder(Cluster, Difference_Norm), y = Difference_Norm, fill = as.factor(Cluster))) +
+  geom_boxplot() +
+  geom_violin() +
+  #geom_text(data = label_data, aes(x = Cluster, y =  MeanDifference+0.001, label = Label), vjust = -1.5) +
+  scale_fill_manual(values = c("#66A5AD", "white", "#FFA07A")) +
+  labs(title = "Less individuals in comparison to Population data are the Underrepresented group\nMore individuals in comparison to Population data are the overrepresented group",
+       x = "Cluster", y = "Difference in Proportions") +
+  theme_minimal()
+
+
+# Mode and count in groups
+Mode <- function(x) {
+  ux <- unique(x)
+  ux[which.max(tabulate(match(x, ux)))]
+}
+
+proportions_public %>% arrange(Difference_Norm)
+
+proportions_private %>% 
+  group_by(Cluster) %>% 
+  summarise(n_groups=n(),
+                                 n_HPA = sum(HPA),
+                                 n_Population = sum(Population),
+            Mode(Sex),
+            Mode(AgeGroup),
+            Mode(SSYK),
+            #Mode(Number_of_employees_Category)
+            )
+```
+
+
+```{r}
+proportions_long <- 
+  proportions_public %>%
+ mutate(across(c(
+   Sex, AgeGroup, SSYK
+   #Sex, AgeGroup, SSYK, Number_of_employees_Category, Place_of_origin, Turnover_Rate_Category, KommunSize
+   ), 
+   as.character)) %>%
+  pivot_longer(
+    cols = c(
+      Sex, AgeGroup, SSYK
+      #Sex, AgeGroup, SSYK, Number_of_employees_Category, Place_of_origin, Turnover_Rate_Category, KommunSize
+      ),
+    names_to = "Category",
+    values_to = "Value"
+  )
+
+proportion_results <- proportions_long %>%
+ # mutate(Category=str_c(Category, names_sep=".", Value)) %>% 
+ group_by(Cluster, Category, Value) %>%
+  summarise(CountHPA = sum(Total_HPA),  # HPI data
+            CountPopulation = sum(Population), # popultaion data
+            CountPooled = sum(Total_HPA) + sum(Population),
+            CountGroup = n(), .groups = 'drop') %>%
+ # separate_wider_delim(Category, delim = ".", names = c("Category", "xx")) %>% 
+   group_by(Cluster, Category) %>%
+  mutate(TotalHPA_per_cluster = sum(CountHPA, na.rm = TRUE)) %>% 
+  ungroup() %>% 
+  mutate(
+         Proportion = CountHPA / TotalHPA_per_cluster * 100
+         )
+
+
+# Ratios
+proportions_comparison <- 
+proportion_results %>%
+  select(Category, Value, Proportion, Cluster, CountHPA, CountPopulation) %>%
+  pivot_wider(names_from = Cluster, values_from = Proportion, names_prefix = "Cluster_") %>%
+  mutate(
+    # Handling NA by replacing with zero can bias the analysis, consider if_else to avoid division by zero
+   # Cluster_2 = if_else(is.na(Cluster_2), 0.01, Cluster_2),  # Replacing NA with a small number to avoid division by zero
+   # Cluster_3 = if_else(is.na(Cluster_3), 0.01, Cluster_3),
+    
+    # Calculate Ratios
+ Underrepresented = Cluster_1,  # Previously Cluster_1
+    Represented = Cluster_2,        # Previously Cluster_2
+    Overrepresented = Cluster_3,    # Previously Cluster_3
+    
+    # Calculate Ratios
+    Ratio_UnderRep = Underrepresented  / Represented,
+    Ratio_OverRep = Overrepresented / Represented,
+    
+    # Calculate Differences of Proportions
+    Difference_Rep_Under = Underrepresented  - Represented,
+    Difference_Over_Rep = Overrepresented - Represented
+  ) %>%
+  select(Category, Value, Underrepresented, Represented, Overrepresented,
+         Ratio_UnderRep, Ratio_OverRep, Difference_Rep_Under, Difference_Over_Rep,CountHPA, CountPopulation)
+```
+
+```{r}
+
+plot_data <-
+proportions_comparison %>% 
+  pivot_longer(cols = c(Underrepresented,Represented),
+               names_to = "cat",
+               values_to = "Percentage")%>%
+  mutate(Percentage = ifelse(Percentage <= 0, NA_real_, Percentage)) %>% 
+  mutate(point_size = ifelse(cat == "Underrepresented", 3, 2.5))
+
+range_data <- plot_data %>%
+  filter(cat %in% c("Underrepresented", "Represented")) %>%  # Focus on these two groups
+  group_by(Value, Category) %>%
+  summarise(min_Percentage = min(Percentage, na.rm = TRUE),
+            max_Percentage = max(Percentage, na.rm = TRUE),
+            diff = max_Percentage-min_Percentage,
+            min_cat = cat[which.min(Percentage)],
+            max_cat = cat[which.max(Percentage)],
+            .groups = 'drop') %>%
+  mutate(line_color = ifelse(min_cat == "Underrepresented" & max_cat == "Represented", "#FFA07A", "#66A5AD"))
+  
+  plot_data %>% 
+  ggplot(aes(Percentage, Value, color=cat, group = cat)) +
+ #geom_linerange(aes(xmin = min(plot_data$cat, na.rm = TRUE), xmax = max(plot_data$cat, na.rm = TRUE)), linetype = "dotted", linewidth=1) +  # Dodging lines
+  geom_segment(data = range_data, aes(x = min_Percentage, xend = max_Percentage, y = Value, yend = Value, color = max_cat, alpha = if_else(max_cat == "Underrepresented", 1, .4)), linewidth = 2, linetype = "solid", inherit.aes = FALSE) +
+  geom_point(aes(size = if_else(cat == "Underrepresented", 5, 2.5)), alpha = 1) +
+  #geom_vline(xintercept = 1) +
+ 
+  #geom_col(position = position_dodge()) +
+    scale_color_manual(values = c("Underrepresented" = "#FFA07A", "Overrepresented" = "#66A5AD", "Represented" = "grey")) +
+    scale_size_identity() +
+    scale_alpha_identity() +
+
+
+    ggforce::facet_col(~Category,
+                     scales = 'free_y',
+                     space = 'free',
+                     strip.position = 'top')+
+  labs(
+    title = "Public",
+    x = "Percentage",
+    y = "",
+    color = "Cluster Comparison"
+  ) +
+  theme_minimal() +
+  theme(
+    legend.position = "top",
+    axis.title.x = element_text(size = 12, face = "bold"),
+    axis.title.y = element_text(size = 12, face = "bold"),
+        strip.text = element_text(face = "bold", color = "grey10", 
+                              size = 10,
+                              hjust = 0,
+                              margin = margin(t = 0, r = 0, b = 0, l = 0)),
+    strip.background = element_rect(fill = "white", color = "white"),
+    panel.grid = element_blank()
+  )
+```
+
+#Private
+## proportion and k means
+
+```{r}
+
+# summarize into combinations of all combinations of variables in both datasets
+# calculate proportion for hpi and pop data by themself
+# calculate difference between hpi and pop proportions data
+# calculate normalized difference
+proportions_private <- combined_private %>% 
+    group_by(Sex, AgeGroup, SSYK, dataset
+           #Number_of_employees_Category, Turnover_Rate_Category, KommunSize, dataset
+           ) %>%
+  # summarize into agregated groups of every possible combination available
+  summarise(Count = n(), .groups = 'drop') %>% 
+  pivot_wider(names_from = dataset, values_from = Count, values_fill = list(Count = 0)) %>%
+  mutate(Total_Population = `Population`, 
+         Total_HPA = `HPA`,
+         Proportion_Population = Total_Population / sum(Total_Population),
+         Proportion_HPA = Total_HPA / sum(Total_HPA),
+         Difference = Proportion_HPA - Proportion_Population,
+             Difference_Norm = (Difference - mean(Difference)) / sd(Difference)  # Normalize 
+) 
+
+
+
+# K-means clustering by difference in proportions in different groups for over and underreached groups
+set.seed(4)
+clusters <- kmeans(proportions_private[, c("Difference_Norm")], centers = 3)
+proportions_private$Cluster <- clusters$cluster
+
+ggplot(proportions_private, aes(x = reorder(Cluster, Difference), y = Difference, fill = as.factor(Cluster))) +
+  geom_boxplot() +
+  geom_violin() +
+  #geom_text(data = label_data, aes(x = Cluster, y =  MeanDifference+0.001, label = Label), vjust = -1.5) +
+  scale_fill_manual(values = c("#66A5AD", "white", "#FFA07A")) +
+  labs(title = "Less individuals in comparison to Population data are the Underrepresented group\nMore individuals in comparison to Population data are the overrepresented group",
+       x = "Cluster", y = "Difference in Proportions") +
+  theme_minimal()
+
+proportions_private %>% arrange(Difference_Norm)
+
+proportions_private %>% arrange(desc(Difference_Norm)) %>% 
+  select(Sex, AgeGroup , SSYK, Number_of_employees_Category, Difference_Norm, Cluster, HPA)
+proportions_private %>% arrange(Difference_Norm)%>% select(Sex ,  AgeGroup , SSYK , Difference_Norm, Cluster, HPA)
+
+
+
+# histogram of count in the different clusters
+proportions_private %>% arrange(desc(Difference)) %>% select(HPA, Population, Proportion_HPA, Proportion_Population, Difference, Difference_Norm, Cluster, everything()) %>%  print(n=200)
+
+proportions_private %>% 
+ ggplot() +
+  geom_histogram(aes(x=Population), bins = 500) +
+  scale_y_continuous(limits =  c(0,100)) +
+   facet_wrap(~Cluster) +
+  theme_minimal()
+```
+
+
+```{r}
+# Pivot the categorical data longer
+proportions_long <- proportions_private %>%
+ mutate(across(c(
+   Sex, AgeGroup, SSYK, Number_of_employees_Category
+   #Sex, AgeGroup, SSYK, Number_of_employees_Category, Place_of_origin, Turnover_Rate_Category, KommunSize
+   ), 
+   as.character)) %>%
+  pivot_longer(
+    cols = c(
+      Sex, AgeGroup, SSYK, Number_of_employees_Category
+      #Sex, AgeGroup, SSYK, Number_of_employees_Category, Place_of_origin, Turnover_Rate_Category, KommunSize
+      ),
+    names_to = "Category",
+    values_to = "Value"
+  )
+
+proportion_results <- proportions_long %>%
+ # mutate(Category=str_c(Category, names_sep=".", Value)) %>% 
+ group_by(Cluster, Category, Value) %>%
+  summarise(CountHPA = sum(Total_HPA),  # HPI data
+            CountPopulation = sum(Population), # popultaion data
+            CountPooled = sum(Total_HPA) + sum(Population),
+            CountGroup = n(), .groups = 'drop') %>%
+ # separate_wider_delim(Category, delim = ".", names = c("Category", "xx")) %>% 
+   group_by(Cluster, Category) %>%
+  mutate(TotalHPA_per_cluster = sum(CountHPA, na.rm = TRUE)) %>% 
+  ungroup() %>% 
+  mutate(
+         Proportion = CountHPA / TotalHPA_per_cluster * 100
+         )
+
+
+# Ratios
+proportions_comparison <- 
+proportion_results %>%
+  select(Category, Value, Proportion, Cluster) %>%
+  pivot_wider(names_from = Cluster, values_from = Proportion, names_prefix = "Cluster_") %>%
+  mutate(
+    # Handling NA by replacing with zero can bias the analysis, consider if_else to avoid division by zero
+   # Cluster_2 = if_else(is.na(Cluster_2), 0.01, Cluster_2),  # Replacing NA with a small number to avoid division by zero
+   # Cluster_3 = if_else(is.na(Cluster_3), 0.01, Cluster_3),
+    
+    # Calculate Ratios
+ Underrepresented = Cluster_1,  # Previously Cluster_1
+    Represented = Cluster_2,        # Previously Cluster_2
+    Overrepresented = Cluster_3,    # Previously Cluster_3
+    
+    # Calculate Ratios
+    Ratio_UnderRep = Underrepresented  / Represented,
+    Ratio_OverRep = Overrepresented / Represented,
+    
+    # Calculate Differences of Proportions
+    Difference_Rep_Under = Underrepresented  - Represented,
+    Difference_Over_Rep = Overrepresented - Represented
+  ) %>%
+  select(Category, Value, Underrepresented, Represented, Overrepresented,
+         Ratio_UnderRep, Ratio_OverRep, Difference_Rep_Under, Difference_Over_Rep) %>%
+  print(n = 100)
+```
+
+
+# proportion
+```{r}
+
+plot_data <-
+proportions_comparison %>% 
+  pivot_longer(cols = c(Underrepresented,Represented),
+               names_to = "cat",
+               values_to = "Percentage")%>%
+  mutate(Percentage = ifelse(Percentage <= 0, NA_real_, Percentage)) %>% 
+  mutate(point_size = ifelse(cat == "Underrepresented", 3, 2.5))
+
+range_data <- plot_data %>%
+  filter(cat %in% c("Underrepresented", "Represented")) %>%  # Focus on these two groups
+  group_by(Value, Category) %>%
+  summarise(min_Percentage = min(Percentage, na.rm = TRUE),
+            max_Percentage = max(Percentage, na.rm = TRUE),
+            diff = max_Percentage-min_Percentage,
+            min_cat = cat[which.min(Percentage)],
+            max_cat = cat[which.max(Percentage)],
+            .groups = 'drop') %>%
+  mutate(line_color = ifelse(min_cat == "Underrepresented" & max_cat == "Represented", "#FFA07A", "#66A5AD"))
+  
+  plot_data %>% 
+  ggplot(aes(Percentage, Value, color=cat, group = cat)) +
+ #geom_linerange(aes(xmin = min(plot_data$cat, na.rm = TRUE), xmax = max(plot_data$cat, na.rm = TRUE)), linetype = "dotted", linewidth=1) +  # Dodging lines
+  geom_segment(data = range_data, aes(x = min_Percentage, xend = max_Percentage, y = Value, yend = Value, color = max_cat, alpha = if_else(max_cat == "Underrepresented", 1, .4)), linewidth = 2, linetype = "solid", inherit.aes = FALSE) +
+  geom_point(aes(size = if_else(cat == "Underrepresented", 5, 2.5)), alpha = 1) +
+  #geom_vline(xintercept = 1) +
+ 
+  #geom_col(position = position_dodge()) +
+    scale_color_manual(values = c("Underrepresented" = "#FFA07A", "Overrepresented" = "#66A5AD", "Represented" = "grey")) +
+    scale_size_identity() +
+    scale_alpha_identity() +
+
+
+    ggforce::facet_col(~Category,
+                     scales = 'free_y',
+                     space = 'free',
+                     strip.position = 'top')+
+  labs(
+    title = "Private",
+    x = "Percentage",
+    y = "",
+    color = "Cluster Comparison"
+  ) +
+  theme_minimal() +
+  theme(
+    legend.position = "top",
+    axis.title.x = element_text(size = 12, face = "bold"),
+    axis.title.y = element_text(size = 12, face = "bold"),
+        strip.text = element_text(face = "bold", color = "grey10", 
+                              size = 10,
+                              hjust = 0,
+                              margin = margin(t = 0, r = 0, b = 0, l = 0)),
+    strip.background = element_rect(fill = "white", color = "white"),
+    panel.grid = element_blank()
+  )
+```
+
+
+## graph
+
+```{r}
+
+# Pivot the categorical data longer
+proportions_long <- proportions_private %>%
+ mutate(across(c(
+   Sex, AgeGroup, SSYK, Number_of_employees_Category
+   #Sex, AgeGroup, SSYK, Number_of_employees_Category, Place_of_origin, Turnover_Rate_Category, KommunSize
+   ), 
+   as.character)) %>%
+  pivot_longer(
+    cols = c(
+      Sex, AgeGroup, SSYK, Number_of_employees_Category
+      #Sex, AgeGroup, SSYK, Number_of_employees_Category, Place_of_origin, Turnover_Rate_Category, KommunSize
+      ),
+    names_to = "Category",
+    values_to = "Value"
+  )
+
+proportion_results <- proportions_long %>%
+ # mutate(Category=str_c(Category, names_sep=".", Value)) %>% 
+ group_by(Cluster, Category, Value) %>%
+  summarise(CountHPA = sum(Total_HPA),  # HPI data
+            CountPopulation = sum(Population), # popultaion data
+            CountPooled = sum(Total_HPA) + sum(Population),
+            CountGroup = n(), .groups = 'drop') %>%
+ # separate_wider_delim(Category, delim = ".", names = c("Category", "xx")) %>% 
+   group_by(Cluster, Category) %>%
+  mutate(TotalHPA_per_cluster = sum(CountHPA, na.rm = TRUE)) %>% 
+  ungroup() %>% 
+  mutate(
+         Proportion = CountHPA / TotalHPA_per_cluster * 100
+         )
+
+
+# Ratios
+proportions_comparison <- 
+proportion_results %>%
+  select(Category, Value, Proportion, Cluster) %>%
+  pivot_wider(names_from = Cluster, values_from = Proportion, names_prefix = "Cluster_") %>%
+  mutate(
+    # Handling NA by replacing with zero can bias the analysis, consider if_else to avoid division by zero
+   # Cluster_2 = if_else(is.na(Cluster_2), 0.01, Cluster_2),  # Replacing NA with a small number to avoid division by zero
+   # Cluster_3 = if_else(is.na(Cluster_3), 0.01, Cluster_3),
+    
+    # Calculate Ratios
+ Underrepresented = Cluster_1,  # Previously Cluster_1
+    Represented = Cluster_2,        # Previously Cluster_2
+    Overrepresented = Cluster_3,    # Previously Cluster_3
+    
+    # Calculate Ratios
+    Ratio_UnderRep = Underrepresented  / Represented,
+    Ratio_OverRep = Overrepresented / Represented,
+    
+    # Calculate Differences of Proportions
+    Difference_Rep_Under = Underrepresented  - Represented,
+    Difference_Over_Rep = Overrepresented - Represented
+  ) %>%
+  select(Category, Value, Underrepresented, Represented, Overrepresented,
+         Ratio_UnderRep, Ratio_OverRep, Difference_Rep_Under, Difference_Over_Rep) %>%
+  print(n = 100)
+
+
+
+
+
+proportions_comparison %>% 
+  pivot_longer(cols = c(Ratio_UnderRep),
+               names_to = "cat",
+               values_to = "Ratio") %>% #filter(Ratio_cat=="Ratio_UnderRep") %>% 
+  ggplot(aes(Ratio, Value, fill=cat, group = cat)) +
+  geom_linerange(aes(xmin = 1, xmax = Ratio), position = position_dodge(width = 1), linetype = "dotted", linewidth=1) +  # Dodging lines
+  geom_point(position = position_dodge(1), size =3) +
+  geom_vline(xintercept = 1) +
+  scale_x_log10() +
+  #geom_col(position = position_dodge()) +
+  scale_fill_manual(values = c("#FFA07A", "#66A5AD")) +
+    ggforce::facet_col(~Category, 
+                     scales = 'free_y', 
+                     space = 'free',
+                     strip.position = 'top')+
+  labs(
+    title = "Charactaristics of over and underreached groups in comparison to reached groups",
+    x = "Ratio (Log Scale)",
+    y = "",
+    color = "Cluster Comparison"
+  ) +
+  theme_minimal() +
+  theme(
+    legend.position = "top",
+    axis.title.x = element_text(size = 12, face = "bold"),
+    axis.title.y = element_text(size = 12, face = "bold"),
+        strip.text = element_text(face = "bold", color = "grey10", 
+                              size = 10,
+                              hjust = 0,
+                              margin = margin(t = 0, r = 0, b = 0, l = 0)),
+    strip.background = element_rect(fill = "white", color = "white"),
+    panel.grid = element_blank()
+  )
+
+
+
+
+label_data <- proportions %>%
+  group_by(Cluster = reorder(Cluster, Difference)) %>%
+  summarise(MeanDifference = mean(Difference, na.rm = TRUE), .groups = 'drop') %>%
+  mutate(Label = c("under","represented","over"))  # Assigns a unique letter to each cluster
+
+# Now plot with correct labels
+aa <- ggplot(proportions, aes(x = reorder(Cluster, Difference), y = Difference, fill = as.factor(Cluster))) +
+  geom_boxplot() +
+  geom_violin() +
+  geom_text(data = label_data, aes(x = Cluster, y =  MeanDifference+0.001, label = Label), vjust = -1.5) +
+  scale_fill_manual(values = c("#66A5AD", "white", "#FFA07A")) +
+  labs(title = "Less individuals in comparison to Population data are the Underrepresented group\nMore individuals in comparison to Population data are the overrepresented group",
+       x = "Cluster", y = "Difference in Proportions") +
+  theme_minimal()
+
+
+a <-
+proportions_comparison %>%
+  pivot_longer(cols = c(Ratio_UnderRep, Ratio_OverRep),
+               names_to = "Ratio_cat",
+               values_to = "Ratio") %>% 
+    pivot_longer(cols = c(Difference_Rep_Under, Difference_Over_Rep),
+               names_to = "Diff_cat",
+               values_to = "Diff") %>%  filter(Diff_cat=="Difference_Rep_Under") %>% 
+   ggplot(aes(Diff, Value, color=Diff_cat, group = Diff_cat)) +
+  geom_col(position = position_dodge(1), fill = "white") +
+  scale_color_manual(values = c( "#66A5AD")) +
+    scale_x_continuous(
+    labels = scales::percent_format(scale = 1),  # Scales x values to percentage format
+    breaks = scales::pretty_breaks(n = 5)  # Optional: adjust for better break points on the x-axis
+  ) +
+    ggforce::facet_col(~Category, 
+                     scales = 'free_y', 
+                     space = 'free',
+                     strip.position = 'top')+
+  theme_minimal() +
+    labs(x="underrepresented and overrepresented\n compared to represented in the underrepresented group") +
+  theme(legend.position = "none")
+
+
+b<-
+proportions_comparison %>%
+  pivot_longer(cols = c(Ratio_UnderRep, Ratio_OverRep),
+               names_to = "Ratio_cat",
+               values_to = "Ratio") %>% 
+    pivot_longer(cols = c(Difference_Rep_Under, Difference_Over_Rep),
+               names_to = "Diff_cat",
+               values_to = "Diff") %>%  filter(Diff_cat !="Difference_Rep_Under") %>% 
+   ggplot(aes(Diff, Value, color=Diff_cat, group = Diff_cat)) +
+  geom_col(position = position_dodge(1)) +
+  scale_color_manual(values = c("#FFA07A", "#66A5AD")) +
+    scale_x_continuous(
+    labels = scales::percent_format(scale = 1),  # Scales x values to percentage format
+    breaks = scales::pretty_breaks(n = 5)  # Optional: adjust for better break points on the x-axis
+  ) +
+    ggforce::facet_col(~Category, 
+                     scales = 'free_y', 
+                     space = 'free',
+                     strip.position = 'top')+
+  theme_minimal() +
+  labs(x="underrepresented and overrepresented\n compared to represented in the overrepresented group") +
+  theme(legend.position = "none")
+
+library(patchwork)
+
+aa/(a+b) +
+  plot_layout(heights = c(1, 2), widths = c(2,1))
+
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+# -
+# Individual level cluster data
+Combining clustered data to the individual level data
+
+```{r}
+# Merge into combined
+combined_with_clusters <- combined_public %>% filter(dataset=="HPA", AgeGroup!=">65") %>%   
+  mutate(Sex = if_else(Sex==1,"Men", "Women")) %>% 
+  left_join(proportions %>% 
+              select(Sex, AgeGroup, Ownership_sector, SSYK, Number_of_employees_Category, Cluster
+    #Sex, AgeGroup, Place_of_origin, SSYK, Number_of_employees_Category, Turnover_Rate_Category, KommunSize, Cluster
+                                   ),
+            by = c("Sex", "AgeGroup", "Ownership_sector", "SSYK"
+             # "Sex", "AgeGroup", "Place_of_origin", "SSYK", "Number_of_employees_Category", "Turnover_Rate_Category", "KommunSize"
+              ))
+
+combined_with_clusters %>% group_by(Cluster) %>% 
+  summarise(Bygg = sum(SSYK=="Building"),
+            n())
+
+
+
+combined_with_clusters %>% 
+  filter(KommunSize=="Dense municipalities", Cluster==1) %>% 
+  summarise(    Most_Common_Sex = Mode(Sex),
+   # Most_Common_AgeGroup = Mode(AgeGroup),
+  #  Most_Common_Occupation = Mode(SSYK),
+  #  Most_Common_turnover = Mode(Turnover_Rate_Category),
+    Number_of_employees_Category  = Mode(Number_of_employees_Category))
+
+# Analyze the clusters
+summary_clusters <- proportions %>% 
+  group_by(Cluster) %>%
+  summarise(Mean_Difference = mean(Difference), .groups = 'drop')
+```
+
+## Association Rules Mining
+For seeing what characteristics do have an association
+```{r}
+
+if (!require(arules)) install.packages("arules")
+library(arules)
+library(dplyr)  # Ensure dplyr is loaded for data manipulation
+
+# Prepare the data: Filter and select relevant columns
+data_for_transactions <- combined_with_clusters %>%
+  filter(Cluster == 1) %>%
+  select(Sex, AgeGroup, Ownership_sector, SSYK)
+
+# Convert the prepared data to transaction format
+transactions <- as(data_for_transactions, "transactions")
+
+rules <- apriori(transactions, 
+                 parameter = list(supp = 0.1, conf = 0.8, target = "rules"))
+
+# Inspecting the top 5 rules
+
+rules_df <- as(rules, "data.frame") 
+rules_df%>% as_tibble() %>% 
+  filter(str_detect(rules, "Den") & str_detect(rules, "Per")) %>% arrange(desc(support))
+
+
+# Assuming 'rules' is your set of association rules
+strong_rules <- subset(rules, lift > 1.2 & confidence > 0.8 & support > 0.1)
+inspect(strong_rules)
+
+rules <- apriori (data=data_for_transactions, parameter=list (supp=0.001,conf = 0.08), appearance = list (default="rhs",lhs="Ownership_sector=Private"), control = list (verbose=F)) 
+rules_conf <- sort (rules, by="lift", decreasing=TRUE) # 'high-confidence' rules.
+rules_df <- as(rules_conf, "data.frame") 
+
+
+rules <- apriori (data=data_for_transactions, parameter=list (supp=0.001,conf = 0.08), appearance = list (default="rhs",lhs="Ownership_sector=Public Regional"), control = list (verbose=F)) 
+rules_conf <- sort (rules, by="lift", decreasing=TRUE) # 'high-confidence' rules.
+rules_df <- as(rules_conf, "data.frame") 
+
+
+if (!require(arulesViz)) install.packages("arulesViz")
+library(arulesViz)
+
+plot(rules, method = "graph", control = list(type = "items"))
+```
+
+## MCA
+Patterns of characteristics in different represented groups
+```{r}
+##################################
+# Multiple Correspondence Analysis
+library(FactoMineR)
+
+data_filtered <- combined_with_clusters %>%
+  filter(Cluster == 3) %>% 
+    # filter( SSYK == "Personal care" | KommunSize == "Dense municipalities" |
+    #            AgeGroup == "18-35" | Turnover_Rate_Category == "<10%" | Sex=="Women") %>%
+    select(Sex, SSYK, AgeGroup, Ownership_sector)  # Select more variables
+
+# Perform Multiple Correspondence Analysis
+mca_results <- MCA(data_filtered, graph = FALSE)
+
+# Summary of MCA
+print(summary(mca_results))
+
+# Plotting the results
+plot(mca_results, invisible = "ind")
+
+```
+
+
+# Cramers V
+Function for creaing pairwise association between all variables in data
+```{r}
+require(rcompanion)
+
+data_filtered1 <- combined_with_clusters %>%
+  filter(Cluster == 1) %>% 
+    select(Sex, SSYK, AgeGroup, Ownership_sector) 
+
+data_filtered3 <- combined_with_clusters %>%
+  filter(Cluster == 3) %>% 
+    select(Sex, SSYK, AgeGroup) 
+# Calculate a pairwise association between all variables in a data-frame. In particular nominal vs nominal with Chi-square, numeric vs numeric with Pearson correlation, and nominal vs numeric with ANOVA.
+# Adopted from https://stackoverflow.com/a/52557631/590437
+mixed_assoc = function(df, cor_method="spearman", adjust_cramersv_bias=TRUE){
+    df_comb = expand.grid(names(df), names(df),  stringsAsFactors = F) %>% set_names("X1", "X2")
+   
+    is_nominal = function(x) class(x) %in% c("factor", "character")
+    # https://community.rstudio.com/t/why-is-purr-is-numeric-deprecated/3559
+    # https://github.com/r-lib/rlang/issues/781
+    is_numeric <- function(x) { is.integer(x) || is_double(x)}
+
+    f = function(xName,yName) {
+        x =  pull(df, xName)
+        y =  pull(df, yName)
+
+        result = if(is_nominal(x) && is_nominal(y)){
+            # use bias corrected cramersV as described in https://rdrr.io/cran/rcompanion/man/cramerV.html
+            cv = cramerV(as.character(x), as.character(y), bias.correct = adjust_cramersv_bias)
+            data.frame(xName, yName, assoc=cv, type="cramersV")
+
+        }else if(is_numeric(x) && is_numeric(y)){
+            correlation = cor(x, y, method=cor_method, use="complete.obs")
+            data.frame(xName, yName, assoc=correlation, type="correlation")
+
+        }else if(is_numeric(x) && is_nominal(y)){
+            # from https://stats.stackexchange.com/questions/119835/correlation-between-a-nominal-iv-and-a-continuous-dv-variable/124618#124618
+            r_squared = summary(lm(x ~ y))$r.squared
+            data.frame(xName, yName, assoc=sqrt(r_squared), type="anova")
+
+        }else if(is_nominal(x) && is_numeric(y)){
+            r_squared = summary(lm(y ~x))$r.squared
+            data.frame(xName, yName, assoc=sqrt(r_squared), type="anova")
+
+        }else {
+            warning(paste("unmatched column type combination: ", class(x), class(y)))
+        }
+
+        # finally add complete obs number and ratio to table
+        result %>% mutate(complete_obs_pairs=sum(!is.na(x) & !is.na(y)), complete_obs_ratio=complete_obs_pairs/length(x)) %>% rename(x=xName, y=yName)
+    }
+
+    # apply function to each variable combination
+    map2_df(df_comb$X1, df_comb$X2, f)
+}
+
+
+mixed_assoc(data_filtered1)
+mixed_assoc(data_filtered3)
+```

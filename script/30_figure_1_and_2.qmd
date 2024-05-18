@@ -1,0 +1,489 @@
+---
+title: "Figure 1 and 2"
+format: html
+editor: source
+---
+
+
+Figure 1 and 2, also relative difference table and Counts in comparitive pop and counts and % in different categories in the comparative population
+
+# libraries
+```{r}
+library(tidyverse)
+library(here)
+library(statebins)
+library(ggtext)
+library(patchwork)
+library(sysfonts)
+library(showtextdb)
+library(showtext)
+library(ggchicklet)
+library(scales) 
+library(cowplot)
+```
+
+
+# Font and theme
+```{r}
+
+# Load fonts --------------------------------------------------------------
+
+font_add_google("Ubuntu", "ubuntu")
+font_add_google("Roboto", "roboto")
+showtext_auto()
+
+bg_col <- "white"
+text_col <- "black"
+body_font <- "Roboto"
+title_font <- "ubuntu"
+
+ 
+
+
+  
+  gradient <-  c("#003B46", "#07575B", "#66A5AD", "#C4DFE6", "#E6F1F5", "white", "#FFF0E0", "#FFD1AA", "#FFA07A", "#fc7c49", "#ad5431") 
+  #gradient <-  c("#003B46", "#07575B", "#66A5AD", "#C4DFE6", "#D3DDE3", "#F0F0F0", "#F3E0D0", "#FFD1AA", "#FFA07A", "#fc7c49", "#ad5431") #"#001F26"
+  #gradient <-  c("#003B46", "#07575B", "#66A5AD", "#B0D0DA", "#CFE3EC", "#E8E8E8", "#ECD9CC", "#F8C8A2", "#FFA07A", "#fc7c49", "#ad5431")
+ #   ", 
+# Theme
+
+theme_set(
+  theme(
+    text = element_text(family = body_font),
+    legend.position = "none", 
+    plot.background = element_rect(fill = bg_col, colour = bg_col),
+    panel.background = element_rect(fill = bg_col, colour = bg_col),
+    panel.grid.major = element_blank(), 
+    panel.grid.minor = element_blank(),
+    axis.title = element_blank(),
+    axis.text.y = element_text(colour = text_col,
+                               size = 10,
+                               color = "grey10",
+                               hjust = 1,
+                               margin = margin(r = 0),
+                               angle=0),
+    axis.text.x = element_text(colour = text_col,
+                               size = 14,
+                               color = "grey10",
+                               hjust = .5,
+                               margin = margin(r = 0),
+                               angle=0),
+    axis.line.x = element_line(),
+    axis.ticks.x = element_line(),
+    plot.title.position = "plot",
+    plot.caption.position = "plot",
+    strip.text = element_text(face = "bold", color = "grey30", 
+                              size = 14,
+                              hjust = 0,
+                              margin = margin(t = .5, r = 0, b = 1.5, l = 10)),
+    strip.background = element_rect(fill = "white", color = "white"),
+    plot.margin = margin(t=10, r=-0, b=10, l=0),
+    plot.title = element_textbox_simple(
+      colour = text_col,
+      hjust = 0.5,
+      halign = 0,
+      size = rel(1.8),
+      face = "bold",
+      margin = margin(b = 10, t = 10),
+      lineheight = 0.5#,
+      #family = body_font
+    )
+  )
+)
+```
+
+
+## Read data for figures
+```{r}
+
+
+# Read in all summary files, add a 'YearGroup' column, and bind them into one dataframe
+all_summarized_data <- 
+  bind_rows(
+    # create list of filepaths for those without HPI data
+  list.files(path = here("../../../HPI (DNR XXXXXX)/Data HPI registeruttag 2023/SCB/Leverans/Leverans_20240306/without_hpi_lopnr/3.summarized"), pattern = "Summary_.*\\.csv", full.names = TRUE) %>%
+    
+  map_df(~{
+    # Extracts year group from the filename
+    year_group <- str_extract(basename(.x), "\\d{4}-\\d{4}|\\d{4}-\\d{2}") 
+    
+    read_csv(.x) %>%
+      mutate(YearGroup = year_group,
+             data = "without_HPI") 
+  }),
+ # create list of filepaths for those with HPI data
+list.files(path = here("../../../HPI (DNR XXXXXX)/Data HPI registeruttag 2023/SCB/Leverans/Leverans_20240306/with_hpi_lopnr/3.summarized"), pattern = "Summary_.*\\.csv", full.names = TRUE) %>%
+  map_df(~{
+    year_group <- str_extract(basename(.x), "\\d{4}-\\d{4}|\\d{4}-\\d{2}") # Extracts year group from the filename
+    
+    read_csv(.x) %>%
+      mutate(YearGroup = year_group,
+             data = "with_HPI")
+  })
+)  %>% 
+  # adding the 3 years or more of workplace category, consecutive years category
+  bind_rows(
+  bind_rows(
+ read_csv(here::here("..", "..","..", "HPI (DNR XXXXXX)", "Data HPI registeruttag 2023", "SCB", "Leverans", "Leverans_20240306", "with_hpi_lopnr", "5.work_duration", "workduration_with_summarized.csv")) %>% 
+  rename( "Categories"=consecutive_years_category ,
+          "Value" = percentage) %>% 
+  mutate(Variable = "consecutive_years_category"),
+
+read_csv(here::here("..", "..","..", "HPI (DNR XXXXXX)", "Data HPI registeruttag 2023", "SCB", "Leverans", "Leverans_20240306", "with_hpi_lopnr", "5.work_duration", "workduration_without_summarized.csv")) %>% 
+  rename( "Categories"=consecutive_years_category ,
+          "Value" = percentage) %>% 
+  mutate(Variable = "consecutive_years_category")
+)
+) %>% 
+  select(!c(year_group, total)) 
+
+
+
+#############################################################################  
+# plot data
+#############################################################################  
+  
+  bins_plot_data <-
+  all_summarized_data %>% 
+    pivot_wider(names_from =  data , values_from = c(n, Value)) %>% 
+    mutate(
+      Categories = if_else(Variable=="Sex",
+                           recode(Categories,
+                          "1" = "Men",
+                          "2" = "Women"
+      ), Categories),
+    Variable = recode(Variable,
+      "Sex" = "Sex",
+      "AgeGroup" = "Age group",
+      "Place_of_origin" = "Place of birth",
+      "Civil_status" = "Civil status",
+      "KommunSize" = "Municipality",
+      "EducationLevel" = "Education",
+      "SSYK" = "Occupation",
+      "IncomeLevel" = "Income (% of median)",
+      "Income_Sources_Category" = "Income Sources",
+      "consecutive_years_category" = "Contractual temporariness",
+      "Ownership_sector" = "Ownership sector",
+      "Number_of_employees_Category" = "Number of employees",
+      "SNI_group" = "Economic sector",
+      "Operatingprofit_category" = "Operating profit (% of median)",
+      "Operating_Profit_Margin_Category" = "Operating profit margin",
+      "Turnover_Rate_Category" = "Staff turnover"
+    ),
+     Variable = factor(Variable, levels = c(
+       # demographics
+      "Sex", 
+      "Age group",  
+      "Place of birth", 
+      "Civil status", 
+      "Municipality", 
+      "Education", 
+      "Occupation", 
+      "Income (% of median)", 
+      "Income Sources", 
+      "Contractual temporariness",
+      # worklife
+      "Ownership sector", 
+      "Number of employees", 
+      "Economic sector", 
+      "Operating profit (% of median)", 
+      "Operating profit margin", 
+      "Staff turnover"))) %>% 
+  mutate(Categories = if_else(Categories == "Public Govermental", "Public Governmental", Categories)) %>% 
+  mutate(
+    diff_absolute = Value_with_HPI - Value_without_HPI,
+    diff_relative_ratio = round(Value_with_HPI/Value_without_HPI,2), # as a ratio
+    diff_relative_percent = (Value_with_HPI - Value_without_HPI) / Value_without_HPI * 100, 
+          diff_percent =scales::label_percent(accuracy = 0.1)(diff_absolute / 100), # Convert diff to percentage and format
+    diff_relative_percent_label = scales::label_percent(accuracy = 0.1)(diff_relative_percent / 100)) #%>% filter(Variable == "consecutive_years_category")
+  
+
+  
+```
+
+
+
+#############################################################################  
+# Sociodemographics plot 
+#############################################################################  
+```{r}
+
+
+
+  
+     order_category_sociodemographic <-
+   c(
+  rev(c("18-35", "36-50", "51-65", ">65")), # AgeGroup
+  rev(c("Men", "Women")), # Sex
+  rev(c("Sweden", "Europe", "Outside Europe")),  # Place_of_origin
+  rev(c("Partner", "Single")),
+  rev(c("Metropolitan municipalities", "Dense municipalities", "Rural municipalities")),
+  rev(c("Tertiary", "Secondary", "Primary")),
+  rev(c("Military", "Managers", "Science and engineering", "Health care", "Education", "Other professionals", "Associate professionals", "Administration and customer service", "Personal care", "Service and shop sales", "Agriculture and forestry", "Building", "Manufacturing", "Transport", "Mechanical manufacturing", "Cleaners", "Other elementary occupations")),
+  rev(c("≥200%", "120 to <200%", "80 to <120%", "60 to <80%", "<60%")),
+  rev(c("1", "2 to 3", ">3")),
+  rev(c("≥3 years", "<3 years"))
+)
+  
+
+  
+   p1 <- bins_plot_data %>% #filter(Variable=="Occupation") %>%  count(Categories)
+  filter(
+    Variable %in% c(  
+      "Sex",
+  "Age group",
+  "Place of birth",
+  "Civil status",
+  "Municipality",
+  "Education",
+  "Occupation",
+  "Income (% of median)",
+  "Income Sources",
+  "Contractual temporariness"
+  )
+  ) %>% 
+      mutate(
+          Categories=if_else(Categories == ">=3 years", "≥3 years" , Categories),
+        Categories = factor(Categories, levels = 
+                                   
+                                   order_category_sociodemographic)) %>% 
+  drop_na() %>% 
+  mutate(text_color = if_else(diff_absolute < -10 | diff_absolute > 10, "white", "black")) %>%
+
+  ggplot(
+   aes(x = YearGroup, y = Categories, fill = diff_absolute)
+   ) +
+  statebins:::geom_rtile(
+    radius = unit(3, "pt"),
+  #  position = position_dodge(1),
+   height =.95, 
+   width = .95
+  ) +
+   geom_text(aes(label = diff_percent,  
+                 color = text_color,
+                 family = body_font)) +
+
+
+    scale_fill_gradientn(colors = gradient,
+#  values = scales::rescale(c(-1, 0, 1)),
+                       values = rescale(c(-36, -20,-15, -10, -5, 0, 5, 10, 15, 20, 36)
+),
+                       limits = c(-20, 20),
+                       na.value = "black",
+                       oob = scales::oob_squish) +
+      scale_color_identity() + # Use the color identity scale to apply the colors directly
+  scale_x_discrete(labels = c("95-99", "00-04", "05-09", "10-14", "15-19", "20-21"),
+                   position = "top",
+                   expand = expansion(mult = c(0.02, 0.02)),
+                   guide = guide_axis(n.dodge = 1)) + 
+  #coord_fixed() +
+  ggforce::facet_col(~Variable, 
+                     scales = 'free_y', 
+                     space = 'free',
+                     strip.position = 'top')+
+  #facet_wrap(~group, ncol = 1, scales = "free_y") +
+  #theme_void(base_size = 32, base_family = "Oficial") +
+guides(fill = guide_colourbar(  # Use guide_colourbar for continuous scales
+    title = "",  # Customize or remove the legend title
+    title.position = "top",  # Position the title at the top of the legend
+    label.position = "bottom",  # Position labels at the bottom of the legend bar
+    barwidth = 20,  # Adjust the width of the color bar
+    barheight = 1.2,
+    nbin = 100,  # Increase the number of bins to make the gradient smoother
+    frame.colour = NA,
+    ticks = FALSE  # Show ticks on the color bar
+  ))
+  
+  
+ 
+
+
+```
+
+#############################################################################  
+# Worklife plot data
+#############################################################################  
+```{r}
+
+
+
+order_category_worklife <- c(
+  rev(c("Private", "Public Regional", "Public Governmental")), # Ownership sector
+  rev(c("1 to 9", "10 to 49", "50 to 249", "≥250")), # Number of employees
+  rev(c(
+    "Agriculture, forestry and fishing", "Mining and quarrying", "Manufacturing",
+    "Electricity, gas, steam and air conditioning supply", "Water supply; sewerage, waste management and remediation activities",
+    "Construction", "Wholesale/retail trade; vehicle repair",
+    "Transportation and storage", "Accommodation and food service activities",
+    "Information and communication", "Financial and insurance activities",
+    "Real estate activities", "Professional, scientific and technical activities",
+    "Administrative and support service activities", "Public admin and defence; social security",
+    "Education", "Human health and social work activities", "Arts, entertainment and recreation",
+    "Other service activities", "Activities of households as employers; undifferentiated goods- and services-producing activities of households for own use",
+    "Activities of extraterritorial organisations and bodies" # Economic sector
+  )),
+  rev(c(">500%", "0% to 500%", "-500% to <0%", "<-500%")), # Operating profit (% of median)
+  rev(c(">5%", "0% to 5%", "-5% to <0%", "<-5%")), # Operating profit margin
+  rev(c("<10%", "10% to <20%", "≥20%")) # Staff turnover
+)
+
+
+   p2 <- bins_plot_data %>% 
+      mutate(Categories=if_else(Categories == "Wholesale and retail trade; repair of motor vehicles and motorcycles", "Wholesale/retail trade; vehicle repair" , Categories),
+             Categories=if_else(Categories == "Public administration and defence; compulsory social security", "Public admin and defence; social security" , Categories),
+              Variable=if_else(Variable == "Operating profit margin", "Operating profit margin, private sector" , Variable),
+             Variable=if_else(Variable == "Operating profit (% of median)", "Operating profit, private sector (% of median)" , Variable),
+               Variable=if_else(Variable == "Staff turnover", "Staff turnover, private sector" , Variable)
+             
+      ) %>% 
+  filter(
+    Variable %in% c(  
+  "Ownership sector",
+  "Number of employees",
+  "Economic sector",
+  "Operating profit, private sector (% of median)",
+  "Operating profit margin, private sector",
+  "Staff turnover, private sector"
+  )
+  ) %>% 
+      mutate( Variable = factor(Variable, levels = c("Ownership sector",
+                                                       "Number of employees",
+  "Economic sector",
+  "Operating profit, private sector (% of median)",
+  "Operating profit margin, private sector",
+  "Staff turnover, private sector")),
+      Categories = factor(Categories, levels = 
+                                   
+                                   order_category_worklife)) %>% 
+  drop_na() %>% 
+  mutate(text_color = if_else(diff_absolute < -10 | diff_absolute > 10, "white", "black")) %>%
+
+  ggplot(
+   aes(x = YearGroup, y = Categories, fill = diff_absolute)
+   ) +
+  statebins:::geom_rtile(
+    radius = unit(3, "pt"),
+  #  position = position_dodge(1),
+   height =.95, 
+   width = .95
+  ) +
+   geom_text(aes(label = diff_percent,  
+                 color = text_color,
+                 family = body_font)) +
+  # scico::scale_fill_scico(palette = 'lipari') +
+  # 
+  # scale_fill_gradientn(colors = c(  "#ca9b1a", "#e3b44a", "#f5cc79", "#fae3ac", "#fdf1d6",
+  # "white",
+  # "#c4e2e1", "#88d4d2", "#4bc6c3", "#1ebbbf", "#189a91"),
+  # values = scales::rescale(c(-1, 0, 1))) +
+  
+   scale_fill_gradientn(colors = c("#003B46", "#07575B", "#66A5AD", "#C4DFE6", "#E6F1F5", "white", "#FFF0E0", "#FFD1AA", "#FFA07A", "#fc7c49", "#ad5431"), #"#001F26"
+#  values = scales::rescale(c(-1, 0, 1)),
+                       values = rescale(c(-36, -20, -10, -5, 0, 5, 10, 20, 36)
+),
+                       limits = c(-20, 20),
+                       na.value = "black",
+                       oob = scales::oob_squish) +
+      scale_color_identity() + # Use the color identity scale to apply the colors directly
+  scale_x_discrete(labels = c("95-99", "00-04", "05-09", "10-14", "15-19", "20-21"),
+                   position = "top",
+                   expand = expansion(mult = c(0.02, 0.02)),
+                   guide = guide_axis(n.dodge = 1)) + 
+  #coord_fixed() +
+  ggforce::facet_col(~Variable, 
+                     scales = 'free_y', 
+                     space = 'free',
+                     strip.position = 'top')
+  
+
+
+
+
+```
+
+
+
+# Align and save plots
+
+```{r}
+ 
+aligned_plots <- align_patches(p1, p2)
+
+
+#align_patches(p1, p2, align="v", height = 14, width = 10)
+
+
+#ggdraw(pl[[1]])
+ggdraw(aligned_plots[[1]])
+ ggsave("fig1.png", height = 14, width = 10, dpi=600) 
+ ggsave("fig1.pdf", height = 14, width = 10, dpi=600) 
+#ggdraw(pl[[2]])
+ggdraw(aligned_plots[[2]])
+ ggsave("fig2.png", height = 10.5, width = 10, dpi=600) 
+ggsave("fig2.pdf", height = 10.5, width = 10, dpi=600) 
+
+```
+
+
+# -
+# Suplementary table - rel diff
+
+```{r}
+
+bins_plot_data %>% summarise(sum(n_without_HPI))
+
+table_rel_diff <- 
+  bins_plot_data %>% 
+  select(Variable, Categories, YearGroup, diff_relative_percent_label) %>% 
+  pivot_wider(
+              names_from = YearGroup,
+              values_from = diff_relative_percent_label)
+
+
+write_csv(table_rel_diff, here::here("data", "rel_diff_table.csv"))
+```
+
+
+# Counts by year in comparative population
+```{r}
+bins_plot_data %>% filter(Variable == "Age group") %>% group_by(YearGroup) %>%  summarise(sum=sum(n_without_HPI)) %>% ungroup() %>% mutate(sum(sum))
+
+
+bins_plot_data %>% 
+  select(Variable, Categories, YearGroup, n_without_HPI) %>% 
+  group_by(Variable) %>% 
+  mutate(sum=sum(n_without_HPI)) %>% 
+  ungroup() %>% 
+  mutate(n_without_HPI/sum*100)
+  pivot_wider(
+              names_from = YearGroup,
+              values_from = diff_relative_percent_label)
+  
+  
+
+  
+```
+
+# Comparative population tables
+count and % in different categories
+
+```{r}
+comp_pop_table <-
+bins_plot_data %>%
+  select(Variable, Categories, YearGroup, n_without_HPI) %>%
+  group_by(Variable, YearGroup) %>%
+  mutate(sum = sum(n_without_HPI)) %>%
+  ungroup() %>%
+  mutate(percentage = n_without_HPI / sum * 100,
+         formatted_percentage = ifelse(percentage < 1, 
+                                       paste0(formatC(percentage, format = "f", digits = 1), "%"), 
+                                       paste0(formatC(percentage, format = "f", digits = 0), "%")),
+         result = paste0(formatC(n_without_HPI, big.mark = ",", format = "f", digits = 0), 
+                         " (", formatted_percentage, ")")) %>%
+  select(Variable, Categories, YearGroup, result) %>%
+  pivot_wider(names_from = YearGroup, values_from = result)
+
+write_csv(comp_pop_table, here::here("data", "comparative_pop_table"))
+
+```
+
