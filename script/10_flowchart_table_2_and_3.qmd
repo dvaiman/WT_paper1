@@ -1,5 +1,5 @@
 ---
-title: "WT:WP1:Paper 1"
+title: "WT:WP1:Paper 1, flowchart, table 2 and 3"
 format:
   html:
     code-fold: true
@@ -33,16 +33,13 @@ theme:
 
 Paper 1 in work project 1 of the work together series.
 
-The aim of this study was to investigate the reach, defined as the proportion of the target population that participated in the programme, of a nation-wide OHSP that has included Swedish workers for almost 30 years, both in terms of individual and organizational characteristics, and how the reach has changed over the years. A second aim was to identify under- and overrepresented groups.
+The aim of this study was to investigate the reach, defined as the proportion of the target population that participated in the program, of a nation-wide OHSP that has included Swedish workers for almost 30 years, both in terms of individual and organizational characteristics, and how the reach has changed over the years. A second aim was to identify under- and overrepresented groups.
 
 
 
-Layout
 
-1 script 1 create dataset for HPI data.
-2 script 2, function
 
-#------------------------- \## Libraries
+## Libraries
 
 ```{r}
 xfun::pkg_attach(
@@ -93,7 +90,7 @@ df <- hpa %>% left_join(scb, by = join_by(LopNr, Performed, Year))  %>%
   left_join(scb_vars, by = join_by(LopNr, Performed, Year)) %>% 
   left_join(scb_consecutive, by = join_by(LopNr, Year == year)) %>% 
   left_join(fk_sickness_absence) %>% 
-  mutate(Sickness_absence_within_1_year_of_HPA = if_else(is.na(Sickness_absence_within_1_year_of_HPA), "No", Sickness_absence_within_1_year_of_HPA ))
+  mutate(Sickness_absence_within_1_year_of_HPA = if_else(is.na(Sickness_absence_within_1_year_of_HPA), "No", Sickness_absence_within_1_year_of_HPA))
 
 
 ```
@@ -382,6 +379,68 @@ df2 %>% flowchart(
 
 ```
 
+# Characteristics of excluded individuals
+
+```{r}
+
+df3<-
+df1 |> 
+        arrange(LopNr, Performed) %>% 
+  mutate(hpa_number = row_number(), 
+         test_count = n(), .by = LopNr) %>% 
+  filter(hpa_number == 1,
+         Year <= 2021) %>% 
+    track() %>%
+  filter(rowSums(!is.na(select(., EkB_rel_VO2, Astrand_rel_VO2, HeightCM, WeightKG, BloodPressureSystolic, BloodPressureDiastolic))) >= 2,
+         rowSums(!is.na(select(., ExerciseAnswer, TobaccoSmoking, Diet, Health, StressOverall, SymptomBackNeck))) >= 2, 
+         .messages = "<2 questionnarie and\n<2 physiological variables\nn={formatC(.excluded, big.mark = ',',format = 'fg')}", .headline = "" ) %>% 
+   status(.messages = "n={formatC(.count, big.mark = ',')}")
+
+
+
+  
+df_excluded <- df3 %>% 
+  anti_join(df2 %>% select(LopNr, Performed), by = "LopNr") %>% 
+  select(EducationLevel, Sex, AgeGroup, Place_of_origin, IncomeLevel) %>% 
+  pivot_longer(
+    cols = c(EducationLevel, Sex, AgeGroup, Place_of_origin, IncomeLevel),
+    names_to = "name",
+    values_to = "value"
+  ) %>% 
+  drop_na() %>% 
+  group_by(name, value) %>% 
+  summarise(Count_excluded = n(), .groups = 'drop') %>% 
+  group_by(name) %>% 
+  mutate(Total_excluded = sum(Count_excluded),
+         Percentage_excluded = Count_excluded / Total_excluded * 100,
+         Formatted_excluded = paste0(format(Count_excluded, big.mark = ","), " (", sprintf("%.1f", Percentage_excluded), "%)")) %>% 
+
+  ungroup()
+
+# Process the second dataset and rename variables with "_included" suffix
+df_included <- df2 %>% 
+  select(EducationLevel, Sex, AgeGroup, Place_of_origin, IncomeLevel) %>% 
+  pivot_longer(
+    cols = c(EducationLevel, Sex, AgeGroup, Place_of_origin, IncomeLevel),
+    names_to = "name",
+    values_to = "value"
+  ) %>% 
+  group_by(name, value) %>% 
+  summarise(Count_included = n(), .groups = 'drop') %>% 
+  group_by(name) %>% 
+  mutate(Total_included = sum(Count_included),
+         Percentage_included = Count_included / Total_included * 100,
+          Formatted_included = paste0(format(Count_included, big.mark = ","), " (", sprintf("%.1f", Percentage_included), "%)")) %>% 
+  ungroup()
+
+# Join the two datasets on 'name' and 'value'
+df_inc_exc <- df_excluded %>%
+  left_join(df_included, by = c("name", "value")) %>% select(!c(Percentage_excluded, Percentage_included, Count_excluded, Total_excluded, Count_included, Total_included))
+
+# Print the resulting dataframe
+write_csv(df_inc_exc, here::here("data" ,"df_inc_exc.csv"))
+
+```
 
 # -------------------------
 
@@ -942,60 +1001,11 @@ datatable(
 
 ```
 
-
-# -Table 3. Sociodemographics
-
-
-[**Table shows** relative difference/risk between SCB and HPI data in different sociodemographic categories.]{style="color:red;"}
-
-```{r}
- rel_diff_table <- 
-   compare_percentages(
-  df1 = df2 %>% filter(test_count == 1),
-  df2 = df2 %>% filter(test_count > 1),
-  group_var = "Period",
-  vars =colnames(df2 %>% select(
-    Sex, AgeGroup, BirthPlace, Civil_status, EducationLevel, KommunSize, IncomeLevel, SSYK_Category
-    )
-)
-)
-
-
-rel_diff_table %>% 
-  select(Period, Variable,Categories, rr_with_ci) %>% 
-  pivot_wider(names_from=Period,
-              values_from = rr_with_ci) %>% 
-  
-datatable(
-  escape = FALSE,  # to render HTML
-  extensions = 'Buttons',
-  options = list(
-    scrollX = TRUE,
-    pageLength = 40,
-    lengthMenu = list(c(5, 10, 30, 50, -1), c('5', '10', '30', '50', 'All')),
-    dom = 'Bfrtip',
-    buttons = c('copy', 'csv', 'excel'),
-    title = "Sammanställd Frekvens av ICD-koder",
-        columnDefs = list(
-      list(className = 'dt-body-right', targets = 3:8) # Target columns 2 to 7 -rightalign
-    ),
-    initComplete = JS(
-      "function(settings, json) {",
-      "$(this.api().table().header()).css({'font-size': '10px'});",
-      "$(this.api().table().body()).css({'font-size': '10px'});",
-      "}"
-    )
-  ),
-  class = "compact" # This class reduces padding/margin in the table
-)
- 
-```
-
 #-------------------------
 
 # Worklife characteristics
 
-# -Table 4. Worklife characteristics
+# -Table 3. Worklife characteristics
 
 ```{r}
 
@@ -1066,48 +1076,4 @@ datatable(
 
 ```
 
-# -Table 5. Worklife characteristics
 
-Relative difference/risk between SCB and HPI data
-
-```{r}
- rel_diff_table <- 
-   compare_percentages(
-  df1 = df2 %>% filter(test_count == 1),
-  df2 = df2 %>% filter(test_count > 1),
-  group_var = "Period",
-  vars =colnames(df2 %>% select(
-    IncomeLevel, SNI 
-    )
-)
-)
-
-
-rel_diff_table %>% 
-  select(Period, Variable,Categories, rr_with_ci) %>% 
-  pivot_wider(names_from=Period,
-              values_from = rr_with_ci) %>% 
-  
-datatable(
-  escape = FALSE,  # to render HTML
-  extensions = 'Buttons',
-  options = list(
-    scrollX = TRUE,
-    pageLength = 40,
-    lengthMenu = list(c(5, 10, 30, 50, -1), c('5', '10', '30', '50', 'All')),
-    dom = 'Bfrtip',
-    buttons = c('copy', 'csv', 'excel'),
-    title = "Sammanställd Frekvens av ICD-koder",
-        columnDefs = list(
-      list(className = 'dt-body-right', targets = 3:8) # Target columns 2 to 7 -rightalign
-    ),
-    initComplete = JS(
-      "function(settings, json) {",
-      "$(this.api().table().header()).css({'font-size': '10px'});",
-      "$(this.api().table().body()).css({'font-size': '10px'});",
-      "}"
-    )
-  ),
-  class = "compact" # This class reduces padding/margin in the table
-)
-```
